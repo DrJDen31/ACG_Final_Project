@@ -77,7 +77,8 @@ OpenGLRenderer::OpenGLRenderer(MeshData *_mesh_data, ArgParser *args) {
 
   // Initialize the MeshData
   setupVBOs();
-  
+  setupMPM();
+
   glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS); 
@@ -152,12 +153,14 @@ void OpenGLRenderer::drawVBOs(const glm::mat4 &mvp,const glm::mat4 &m,const glm:
   glUniform1i(wireframeID, mesh_data->wireframe);
   glUniform1i(renderModeID, mesh_data->render_mode);
   drawMesh();
+  drawMPM();
   HandleGLError("leaving drawVBOs");
 }
 
 void OpenGLRenderer::cleanupVBOs() {
   HandleGLError("enter cleanupVBOs");
   cleanupMesh();
+  cleanupMPM();
   HandleGLError("leaving cleanupVBOs");
 }
 
@@ -215,6 +218,55 @@ void OpenGLRenderer::cleanupMesh() {
   glDeleteBuffers(1, &mesh_points_VBO);
   glDeleteBuffers(1, &mesh_tris_VaoId);
   glDeleteBuffers(1, &mesh_points_VaoId);
+}
+
+// ====================================================================
+
+// void OpenGLRenderer::setupMPM() {
+//     mpm_sim = new MPM(64, 500); // Grid size 64, 500 particles
+// }
+void OpenGLRenderer::setupMPM() {
+    mpm_sim = new MPM(64, 500); // Grid size 64, 500 particles
+
+    glGenVertexArrays(1, &mpm_debug_VAO);
+    glGenBuffers(1, &mpm_debug_VBO);
+
+    glBindVertexArray(mpm_debug_VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, mpm_debug_VBO);
+
+    // Allocate space for positions, will update later
+    glBufferData(GL_ARRAY_BUFFER, 500 * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+    glBindVertexArray(0);
+}
+
+void OpenGLRenderer::drawMPM() const {
+mpm_sim->step();
+    const std::vector<Particle>& particles = mpm_sim->getParticles();
+    std::vector<float> data;
+    data.reserve(particles.size() * 2);
+
+    for (const auto& p : particles) {
+        float x = p.x.x / 64.0f * 2.0f - 1.0f;
+        float y = p.x.y / 64.0f * 2.0f - 1.0f;
+        data.push_back(x);
+        data.push_back(y);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, mpm_debug_VBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, data.size() * sizeof(float), data.data());
+glBindVertexArray(mpm_debug_VAO);
+    glPointSize(4.0f);
+    glDrawArrays(GL_POINTS, 0, mpm_sim->getParticles().size());
+    glBindVertexArray(0);
+}
+
+
+void OpenGLRenderer::cleanupMPM() {
+    delete mpm_sim;
+    mpm_sim = nullptr;
 }
 
 // ====================================================================

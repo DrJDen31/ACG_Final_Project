@@ -5,6 +5,7 @@
 #include "OpenGLCanvas.h"
 #include "argparser.h"
 #include "meshdata.h"
+#include "mpm.h"
 
 class OpenGLRenderer {
 
@@ -25,6 +26,11 @@ private:
   void drawMesh() const;
   void cleanupMesh();
 
+  // mpm-related helpers
+  void setupMPM();
+  void drawMPM() const;
+  void cleanupMPM();
+
   // REPRESENTATION
   MeshData *mesh_data;
 
@@ -40,4 +46,10 @@ private:
   GLuint ModelMatrixID;
   GLuint wireframeID;
   GLuint renderModeID;
+
+  // MPM simulation instance (private like mesh_data)
+  MPM *mpm_sim;
+GLuint mpm_debug_VAO;
+GLuint mpm_debug_VBO;
+
 };

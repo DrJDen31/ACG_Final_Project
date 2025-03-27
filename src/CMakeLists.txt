@@ -147,7 +147,13 @@ set (SRCS
   ${PROJECT_SOURCE_DIR}/utils.h
   ${PROJECT_SOURCE_DIR}/utils.cpp
   ${PROJECT_SOURCE_DIR}/vectors.h
-  ${PROJECT_SOURCE_DIR}/vertex.h 
+  ${PROJECT_SOURCE_DIR}/vertex.h
+  ${PROJECT_SOURCE_DIR}/particleSystem.h
+  ${PROJECT_SOURCE_DIR}/particleSystem.cpp
+  ${PROJECT_SOURCE_DIR}/grid.h
+  ${PROJECT_SOURCE_DIR}/grid.cpp
+  ${PROJECT_SOURCE_DIR}/mpm.h
+  ${PROJECT_SOURCE_DIR}/mpm.cpp
   ${OS_SPECIFIC_FILES}
   )
 
