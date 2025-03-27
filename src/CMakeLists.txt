@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5)
-project (hw3)
+project (final)
 
 ##########################################################################
 # EXECUTABLE NAME
