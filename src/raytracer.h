@@ -23,6 +23,16 @@ public:
 };
 
 
+// ====================================================================
+// ====================================================================
+// This class is used for bidirectional path tracing
+class LightEndpoint {
+public:
+    Vec3f position;
+    Vec3f color;
+};
+
+
 class RayTracer {
 
 public:
@@ -42,6 +52,9 @@ public:
 
   // does the recursive work
   Vec3f TraceRay(Ray &ray, Hit &hit, int bounce_count = 0) const;
+
+  // recursive work with bidirectional path tracing
+  Vec3f BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> lights, int bounce_count) const;
 
 private:
 
