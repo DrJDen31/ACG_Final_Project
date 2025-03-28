@@ -1,5 +1,8 @@
 #include "particleSystem.h"
+#include "Windows.h"
 #include <GL/gl.h>
+
+#define M_PI 3.14159265358979323846
 
 // Square
 // void ParticleSystem::init(int count, int gridSize) {
