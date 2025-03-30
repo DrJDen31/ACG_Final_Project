@@ -1,6 +1,8 @@
 #include "particleSystem.h"
-#include "Windows.h"
 #include <GL/gl.h>
+#ifdef _WIN32
+    #include <Windows.h>
+#endif
 
 #define M_PI 3.14159265358979323846
 
@@ -33,6 +35,9 @@ ParticleSystem::ParticleSystem(int count, int gridSize) {
         p.x = center + offset;
         p.v = glm::vec2(4.5f, 20.0f); // upward & right velocity
         p.mass = 1.0f;
+        p.volume_0 = 1.0f;
+        p.F = glm::mat2(1.0f);
+        p.C = glm::mat2(0.0f);
 
         particles.push_back(p);
     }
@@ -43,7 +48,7 @@ ParticleSystem::ParticleSystem(int count, int gridSize) {
 
 // 4.4: advect particle positions by their velocity
 void ParticleSystem::update(Particle& p) {
-    float dt = 0.05f * (1.0f / 60.0f); // global timestepTODO: put somewhere else
+    float dt = 1.0f / 1200.0f; // global timestepTODO: put somewhere else
     p.x += dt * p.v;
 
     if (p.x.y < 1.0f) {
