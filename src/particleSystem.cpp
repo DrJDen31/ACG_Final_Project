@@ -21,23 +21,28 @@
 ParticleSystem::ParticleSystem(int count, int gridSize) {
     particles.clear();
 
-    glm::vec2 center = glm::vec2(gridSize * 0.5f); // center of the grid
+    glm::vec3 center = glm::vec3(gridSize * 0.5f); // center of the grid
     float radius = gridSize * 0.25f; // tweak as needed
 
     for (int i = 0; i < count; ++i) {
         Particle p;
 
         // Small random offset around center (circular scatter)
-        float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * 3.1415926f;
+        float theta = static_cast<float>(rand()) / RAND_MAX * 2.0f * M_PI;
+        float phi = static_cast<float>(rand()) / RAND_MAX * M_PI;
         float r = static_cast<float>(rand()) / RAND_MAX * radius;
-        glm::vec2 offset = glm::vec2(cos(angle), sin(angle)) * r;
+        glm::vec3 offset = glm::vec3(
+            r * sin(phi) * cos(theta),
+            r * sin(phi) * sin(theta),
+            r * cos(phi)
+        );
 
         p.x = center + offset;
-        p.v = glm::vec2(4.5f, 20.0f); // upward & right velocity
-        p.mass = 1.0f;
-        p.volume_0 = 1.0f;
-        p.F = glm::mat2(1.0f);
-        p.C = glm::mat2(0.0f);
+        p.v = glm::vec3(4.5f, 20.0f, 4.5f); // upward & right velocity
+        p.mass = 10.0f;
+        p.volume_0 = 10.0f;
+        p.F = glm::mat3(1.0f);
+        p.C = glm::mat3(0.0f);
 
         particles.push_back(p);
     }
@@ -48,7 +53,7 @@ ParticleSystem::ParticleSystem(int count, int gridSize) {
 
 // 4.4: advect particle positions by their velocity
 void ParticleSystem::update(Particle& p) {
-    float dt = 1.0f / 1200.0f; // global timestepTODO: put somewhere else
+    float dt = 1.0f / 2400.0f; // global timestepTODO: put somewhere else
     p.x += dt * p.v;
 
     if (p.x.y < 1.0f) {

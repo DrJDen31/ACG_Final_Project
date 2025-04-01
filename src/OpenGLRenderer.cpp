@@ -222,11 +222,10 @@ void OpenGLRenderer::cleanupMesh() {
 
 // ====================================================================
 
-// void OpenGLRenderer::setupMPM() {
-//     mpm_sim = new MPM(64, 500); // Grid size 64, 500 particles
-// }
 void OpenGLRenderer::setupMPM() {
-    mpm_sim = new MPM(64, 500); // Grid size 64, 500 particles
+    int numParticles = 500;
+    int gridSize = 64;
+    mpm_sim = new MPM(gridSize, numParticles);
 
     glGenVertexArrays(1, &mpm_debug_VAO);
     glGenBuffers(1, &mpm_debug_VBO);
@@ -235,15 +234,16 @@ void OpenGLRenderer::setupMPM() {
     glBindBuffer(GL_ARRAY_BUFFER, mpm_debug_VBO);
 
     // Allocate space for positions, will update later
-    glBufferData(GL_ARRAY_BUFFER, 500 * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, numParticles * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
 
     glBindVertexArray(0);
 }
 
 void OpenGLRenderer::drawMPM() const {
-mpm_sim->step();
+    mpm_sim->step();
     const std::vector<Particle>& particles = mpm_sim->getParticles();
     std::vector<float> data;
     data.reserve(particles.size() * 2);
@@ -251,13 +251,15 @@ mpm_sim->step();
     for (const auto& p : particles) {
         float x = p.x.x / 64.0f * 2.0f - 1.0f;
         float y = p.x.y / 64.0f * 2.0f - 1.0f;
+        float z = p.x.z / 64.0f * 2.0f - 1.0f;
         data.push_back(x);
         data.push_back(y);
+        data.push_back(z);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, mpm_debug_VBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, data.size() * sizeof(float), data.data());
-glBindVertexArray(mpm_debug_VAO);
+    glBindVertexArray(mpm_debug_VAO);
     glPointSize(4.0f);
     glDrawArrays(GL_POINTS, 0, mpm_sim->getParticles().size());
     glBindVertexArray(0);

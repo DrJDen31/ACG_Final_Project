@@ -1,6 +1,6 @@
 #include "grid.h"
 
-Grid::Grid(int s) : size(s), cells(s * s) {}
+Grid::Grid(int s) : size(s), cells(s * s * s) {}
 
 // 3. calculate grid velocities
 void Grid::update() {
@@ -13,13 +13,17 @@ void Grid::update() {
             cell.velocity += dt * gravity;
         }
 
-        // Get 2D coords from flat index
+        // Get coords from flat index
         int x = index % size;
-        int y = index / size;
+        int y = (index / size) % size;
+        int z = index / (size * size);
+
 
         // 3.2: enforce boundary conditions
-        if (x < 2 || x > size - 3 || y < 2 || y > size - 3) {
-            cell.velocity = glm::vec2(0.0f);
+        if (x < 2 || x > size - 3 ||
+            y < 2 || y > size - 3 ||
+            z < 2 || z > size - 3) {
+            cell.velocity = glm::vec3(0.0f);
         }
 
         ++index;
@@ -28,11 +32,11 @@ void Grid::update() {
 
 void Grid::clear() {
     for (auto& c : cells) {
-        c.velocity = glm::vec2(0.0f);
+        c.velocity = glm::vec3(0.0f);
         c.mass = 0.0f;
     }
 }
 
-Cell& Grid::at(int x, int y) {
-    return cells[y * size + x];
+Cell& Grid::at(int x, int y, int z) {
+    return cells[(z * size * size) + (y * size) + x];
 }

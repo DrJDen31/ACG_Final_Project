@@ -3,9 +3,9 @@
 #include "particleSystem.h"
 
 struct Weights {
-    glm::ivec2 base;
-    glm::vec3 wx, wy;
-    glm::vec2 fx;
+    glm::ivec3 base;
+    glm::vec3 wx, wy, wz;
+    glm::vec3 fx;
 };
 
 

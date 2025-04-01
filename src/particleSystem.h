@@ -3,10 +3,10 @@
 #include <glm/glm.hpp>
 
 struct Particle {
-  glm::vec2 x; // position
-  glm::vec2 v; // velocity
-  glm::mat2 F; // Deformation gradient
-  glm::mat2 C; // Affine velocity matrix
+  glm::vec3 x; // position
+  glm::vec3 v; // velocity
+  glm::mat3 F; // Deformation gradient
+  glm::mat3 C; // Affine velocity matrix
   float volume_0;
   float mass;
 };
