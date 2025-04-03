@@ -13,6 +13,7 @@
 #include <chrono>
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 
 // NOTE: These functions are also called by the Mac Metal Objective-C
 // code, so we need this extern to allow C code to call C++ functions
@@ -262,6 +263,23 @@ void OpenGLRenderer::setupMPM() {
     glBindVertexArray(0);
 }
 
+// Call this once before usage to create output dir: `mkdir frames`
+void saveFrame(int frameCount, GLFWwindow* window) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    std::vector<unsigned char> pixels(3 * width * height);
+
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+
+    std::ostringstream filename;
+    filename << "frames/frame_" << std::setw(4) << std::setfill('0') << frameCount << ".ppm";
+
+    std::ofstream file(filename.str(), std::ios::binary);
+    file << "P6\n" << width << " " << height << "\n255\n";
+    file.write(reinterpret_cast<char*>(pixels.data()), pixels.size());
+    file.close();
+}
+
 // NOTE: Just to analize frame time. Not important
 void trackSimSpeed(float dt) {
     static float simTime = 0.0f;
@@ -283,10 +301,9 @@ void trackSimSpeed(float dt) {
     }
 }
 
-
 void OpenGLRenderer::drawMPM() const {
     mpm_sim->step();
-    trackSimSpeed(1.0f / 1200.0f);
+    trackSimSpeed(1.0f / 2400.0f);
     const std::vector<Particle>& particles = mpm_sim->getParticles();
     std::vector<float> data;
     data.reserve(particles.size() * 2);
@@ -305,6 +322,11 @@ void OpenGLRenderer::drawMPM() const {
     glBindVertexArray(mpm_debug_VAO);
     glPointSize(4.0f);
     glDrawArrays(GL_POINTS, 0, mpm_sim->getParticles().size());
+
+    // NOTE: for recording. Not important to sim
+    // static int frameID = 0;
+    // saveFrame(frameID++, OpenGLCanvas::window);
+
     glBindVertexArray(0);
 }
 
