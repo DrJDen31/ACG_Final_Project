@@ -1,6 +1,7 @@
 #include "mpm.h"
 #include <glm/common.hpp>
 #include <GL/gl.h>
+#include <thread>
 
 // TODO: remove
 #include <iostream>
@@ -86,8 +87,8 @@ void MPM::p2g() {
         glm::mat3 F_minus_F_inv_T = F - F_inv_T;
 
         // Tunable parameters // TODO: put in initalizer
-        float mu = 1400.0f; // shear modulus
-        float lambda = 1400.0f; // bulk modulus
+        float mu = 400.0f; // shear modulus
+        float lambda = 800.0f; // bulk modulus
 
         // Cauvhy stress = (1 / det(F)) * P *F_T
         glm::mat3 P = mu * F_minus_F_inv_T + lambda * std::log(J) * F_inv_T;
@@ -141,43 +142,59 @@ void MPM::g2p() {
     float dx = 1.0f;
     float inv_dx = 1.0f;
 
-    for (auto& p : particles.getParticles()) {
-        // 4.1: update particle's deformation gradient using MLS-MPM's velocity gradient estimate
-        // Reference: MLS-MPM paper, Eq. 17
-        p.F = (glm::mat3(1.0f) + dt * p.C) * p.F;
+    auto& particleList = particles.getParticles();
+    int numThreads = std::thread::hardware_concurrency();
+    int chunkSize = particleList.size() / numThreads;
 
-        // 4.2: calculate neighbouring cell weights as in step 2.1.
-        // note: our particle's haven't moved on the grid at all by this point, so the weights will be identical
-        Weights w = computeWeights(p.x, inv_dx);
+    auto worker = [&](int start, int end) {
+        for (int idx = start; idx < end; ++idx) {
+            Particle& p = particleList[idx];
+            // 4.1: update particle's deformation gradient using MLS-MPM's velocity gradient estimate
+            // Reference: MLS-MPM paper, Eq. 17
+            p.F = (glm::mat3(1.0f) + dt * p.C) * p.F;
 
-        // 4.3: calculate our new particle velocities
-        p.v = glm::vec3(0.0f);
+            // 4.2: calculate neighbouring cell weights as in step 2.1.
+            // note: our particle's haven't moved on the grid at all by this point, so the weights will be identical
+            Weights w = computeWeights(p.x, inv_dx);
 
-        p.C = glm::mat3(0.0f); // Reset C before accumulation
-        for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-        for (int k = 0; k < 3; ++k) {
-                glm::ivec3 offset(i, j, k);
-                glm::ivec3 node = w.base + offset;
+            // 4.3: calculate our new particle velocities
+            p.v = glm::vec3(0.0f);
 
-                if (node.x < 0 || node.x >= grid.size ||
-                    node.y < 0 || node.y >= grid.size ||
-                    node.z < 0 || node.z >= grid.size)
-                    continue;
+            p.C = glm::mat3(0.0f); // Reset C before accumulation
+            for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                    glm::ivec3 offset(i, j, k);
+                    glm::ivec3 node = w.base + offset;
 
-                float weight = w.wx[i] * w.wy[j] * w.wz[k];
-                glm::vec3 dpos = (glm::vec3(offset) - w.fx) * dx;
-                const Cell& cell = grid.at(node.x, node.y, node.z);
+                    if (node.x < 0 || node.x >= grid.size ||
+                        node.y < 0 || node.y >= grid.size ||
+                        node.z < 0 || node.z >= grid.size)
+                        continue;
 
-                // 4.3.1: get this cell's weighted contribution to our particle's new velocity
-                p.v += weight * cell.velocity;
-                // APIC: C += 4 * inv_dx * outer_product(weight * velocity, dpos)
-                p.C += 4.0f * weight * glm::outerProduct(cell.velocity, dpos);
+                    float weight = w.wx[i] * w.wy[j] * w.wz[k];
+                    glm::vec3 dpos = (glm::vec3(offset) - w.fx) * dx;
+                    const Cell& cell = grid.at(node.x, node.y, node.z);
+
+                    // 4.3.1: get this cell's weighted contribution to our particle's new velocity
+                    p.v += weight * cell.velocity;
+                    // APIC: C += 4 * inv_dx * outer_product(weight * velocity, dpos)
+                    p.C += 4.0f * weight * glm::outerProduct(cell.velocity, dpos);
+            }
+            }
+            }
+
+            // 4.4: advect particle positions by their velocity
+            particles.update(p);
         }
-        }
-        }
+    };
 
-        // 4.4: advect particle positions by their velocity
-        particles.update(p);
+    std::vector<std::thread> threads;
+    for (int t = 0; t < numThreads; ++t) {
+        int start = t * chunkSize;
+        int end = (t == numThreads - 1) ? particleList.size() : (t + 1) * chunkSize;
+        threads.emplace_back(worker, start, end);
     }
+
+    for (auto& thread : threads) thread.join();
 }

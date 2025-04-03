@@ -10,6 +10,10 @@
 #include "matrix.h"
 #include "boundingbox.h"
 
+#include <chrono>
+#include <iostream>
+#include <iomanip>
+
 // NOTE: These functions are also called by the Mac Metal Objective-C
 // code, so we need this extern to allow C code to call C++ functions
 // (without function name mangling confusion).
@@ -69,6 +73,22 @@ void Animate() {
 
 // ====================================================================
 // ====================================================================
+
+void updateFPSCounter() {
+    static auto lastTime = std::chrono::high_resolution_clock::now();
+    static int frameCount = 0;
+
+    frameCount++;
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float elapsed = std::chrono::duration<float>(currentTime - lastTime).count();
+
+    if (elapsed >= 1.0f) {
+        std::cout << "\rFPS: " << std::setw(3) << frameCount << std::flush;
+        frameCount = 0;
+        lastTime = currentTime;
+    }
+}
+
 
 OpenGLRenderer::OpenGLRenderer(MeshData *_mesh_data, ArgParser *args) {
   mesh_data = _mesh_data;
@@ -223,7 +243,7 @@ void OpenGLRenderer::cleanupMesh() {
 // ====================================================================
 
 void OpenGLRenderer::setupMPM() {
-    int numParticles = 500;
+    int numParticles = 400;
     int gridSize = 64;
     mpm_sim = new MPM(gridSize, numParticles);
 
@@ -242,8 +262,31 @@ void OpenGLRenderer::setupMPM() {
     glBindVertexArray(0);
 }
 
+// NOTE: Just to analize frame time. Not important
+void trackSimSpeed(float dt) {
+    static float simTime = 0.0f;
+    static auto last = std::chrono::high_resolution_clock::now();
+    static int frames = 0;
+
+    simTime += dt;
+    frames++;
+
+    auto now = std::chrono::high_resolution_clock::now();
+    float realElapsed = std::chrono::duration<float>(now - last).count();
+
+    if (realElapsed >= 1.0f) {
+        float simPerReal = simTime / realElapsed;
+        std::cout << "\rSim seconds per real second: " << std::fixed << std::setprecision(4) << simPerReal << std::flush;
+        simTime = 0.0f;
+        frames = 0;
+        last = now;
+    }
+}
+
+
 void OpenGLRenderer::drawMPM() const {
     mpm_sim->step();
+    trackSimSpeed(1.0f / 1200.0f);
     const std::vector<Particle>& particles = mpm_sim->getParticles();
     std::vector<float> data;
     data.reserve(particles.size() * 2);

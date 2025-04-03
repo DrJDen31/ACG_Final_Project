@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <glm/glm.hpp>
+#include "grid.h"
 
 struct Particle {
   glm::vec3 x; // position

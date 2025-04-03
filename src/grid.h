@@ -2,7 +2,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-const float dt = 1.0f / 1200.0f; // global timestepTODO: put somewhere else
+const float dt = 1.0f / 1200.0f; // global timestep
 const glm::vec3 gravity(0.0f, -9.8f, 0.0f);
 
 struct Cell {
