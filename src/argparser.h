@@ -14,6 +14,7 @@ class RayTracer;
 class Radiosity;
 class PhotonMapping;
 class BoundingBox;
+class MPM;
 
 // ======================================================================
 // Class to collect all the high-level rendering parameters controlled
@@ -60,6 +61,7 @@ public:
   PhotonMapping *photon_mapping;
   BoundingBox *bbox;
 
+  MPM* mpm;
 
 };
 

@@ -247,6 +247,8 @@ void OpenGLRenderer::setupMPM() {
     int gridSize = 64;
     mpm_sim = new MPM(gridSize, numParticles);
 
+    GLOBAL_args->mpm = mpm_sim;
+
     glGenVertexArrays(1, &mpm_debug_VAO);
     glGenBuffers(1, &mpm_debug_VBO);
 

@@ -1,10 +1,23 @@
 #include "mpm.h"
 #include <glm/common.hpp>
+
+#ifdef _WIN32
+    #include <windows.h>
+#endif
+
 #include <GL/gl.h>
 #include <thread>
 
 // TODO: remove
 #include <iostream>
+
+// for intersection
+#include "ray.h"
+#include "hit.h"
+#include "material.h"
+
+#include "raytree.h"
+
 
 MPM::MPM(int gridSize, int particleCount)
     // 1.  initialise grid - fill your grid array with (grid_res * grid_res) cells.
@@ -197,4 +210,71 @@ void MPM::g2p() {
     }
 
     for (auto& thread : threads) thread.join();
+}
+
+bool MPM::intersect(const Ray& r, Hit& h) const {
+    // snow material, should move to somewhere global or file configured
+    Vec3f diffuse = Vec3f(0.1f, 0.9f, 0.1f);
+    Vec3f reflective = Vec3f(0.0f, 0.0f, 0.0f);
+    Vec3f emitted = Vec3f(0.0f, 0.0f, 0.0f);
+    float roughness = 0.3;
+    Material* material = new Material("", diffuse, reflective, emitted, roughness);
+
+    // normal of the hit (will come from the particle)
+    Vec3f normal;
+
+    // particles
+    std::vector<Particle> particleList = particles.getParticles();
+
+    // trackers for nearest valid collision
+    double t = -1;
+    bool collision = false;
+
+    // for each particle, check if we intersect it
+    for (int i = 0; i < particleList.size(); i++) {
+        int print_num = 0;
+        // get the particle's position
+        Particle p = particleList[i];
+        Vec3f pos = Vec3f(p.x.x / 64.0f * 2.0f - 1.0f, p.x.y / 64.0f * 2.0f - 1.0f, p.x.z / 64.0f * 2.0f - 1.0f);
+        if (i < 0) {
+            std::cout << std::endl << "particle at " << pos << std::endl;
+            std::cout << "ray origin: " << r.getOrigin() << std::endl;
+            std::cout << "ray dir: " << r.getDirection() << std::endl;
+        }
+
+        // determine where the point would be along the ray given it's x value
+        double delta_x = pos.x() - r.getOrigin().x();
+        double ts = delta_x / r.getDirection().x();
+        Vec3f projected = r.pointAtParameter(ts);
+
+        Vec3f cast = pos - r.getOrigin();
+        cast.Normalize();
+
+        if (i < print_num) {
+            Ray checker(r.getOrigin(), cast);
+            RayTree::AddReflectedSegment(checker, 0, 5);
+            std::cout << "particle would be at " << projected << std::endl;
+        }
+
+        // if we are close enough to expected position, register collision
+        Vec3f distance = projected - pos;
+        double threshold = 0.1;
+        if (i < print_num) {
+            std::cout << "particle " << distance.Length() << " away" << std::endl;
+        }
+        if (distance.Length() < threshold) {
+            // check if new closest hit
+            if ((t == -1 || ts < t) && ts > 0) {
+                t = ts;
+                collision = true;
+                normal = Vec3f(p.normal.x, p.normal.y, p.normal.z);
+            }
+        }
+    }
+
+    // update hit if collision found
+    if (collision && t < h.getT()) h.set(t, material, normal);
+
+    // return result
+    return collision;
 }

@@ -10,6 +10,7 @@ struct Particle {
   glm::mat3 C; // Affine velocity matrix
   float volume_0;
   float mass;
+  glm::vec3 normal; // normal (for raytracing)
 };
 
 class ParticleSystem {

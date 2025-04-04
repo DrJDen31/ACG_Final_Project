@@ -8,6 +8,8 @@ struct Weights {
     glm::vec3 fx;
 };
 
+class Ray;
+class Hit;
 
 class MPM {
 public:
@@ -15,6 +17,9 @@ public:
     std::vector<Particle>& getParticles() { return particles.getParticles(); }
     void step();
     void draw() const;
+
+    // for raytracing
+    bool intersect(const Ray& r, Hit& h) const;
 
 private:
     void p2g(); // Particle-to-grid

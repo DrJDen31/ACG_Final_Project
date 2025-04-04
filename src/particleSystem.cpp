@@ -1,8 +1,11 @@
 #include "particleSystem.h"
-#include <GL/gl.h>
+
 #ifdef _WIN32
-    #include <Windows.h>
+    #include <windows.h>
 #endif
+
+#include <GL/gl.h>
+
 
 #define M_PI 3.14159265358979323846
 
@@ -33,6 +36,9 @@ ParticleSystem::ParticleSystem(int count, int gridSize) {
         p.volume_0 = 10.0f;
         p.F = glm::mat3(1.0f);
         p.C = glm::mat3(0.0f);
+
+        // random normal
+        p.normal = glm::vec3(static_cast<float>(rand()) / RAND_MAX, static_cast<float>(rand()) / RAND_MAX, static_cast<float>(rand()) / RAND_MAX);
 
         particles.push_back(p);
     }

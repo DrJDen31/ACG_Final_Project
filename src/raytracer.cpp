@@ -12,6 +12,8 @@
 
 #include <random>
 
+#include "mpm.h"
+
 // ===========================================================================
 // casts a single ray through the scene geometry and finds the closest hit
 bool RayTracer::CastRay(const Ray &ray, Hit &h, bool use_rasterized_patches) const {
@@ -35,6 +37,9 @@ bool RayTracer::CastRay(const Ray &ray, Hit &h, bool use_rasterized_patches) con
       if (mesh->getPrimitive(i)->intersect(ray,h)) answer = true;
     }
   }
+
+  if (GLOBAL_args->mpm->intersect(ray, h)) answer = true;
+
   return answer;
 }
 
@@ -333,63 +338,61 @@ Vec3f VisualizeTraceRay(double i, double j) {
 
   int as = GLOBAL_args->mesh_data->num_antialias_samples;
 
-  std::vector<LightEndpoint> light_spots;
-
-  int num_lights = GLOBAL_args->mesh->getLights().size();
-  //std::cout << "generating lights" << std::endl;
-  for (int i = 0; i < num_lights; i++) {
-
-      Face* f = GLOBAL_args->mesh->getLights()[i];
-      LightEndpoint light = LightEndpoint();
-      Vec3f cur_color = f->getMaterial()->getEmittedColor() * f->getArea();
-      light.color = cur_color;
-      Vec3f cur_position = f->computeCentroid();
-      light.position = cur_position;
-      light_spots.push_back(light);
-      Vec3f cur_dir = f->computeNormal() + Vec3f(max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2));
-
-      int count = 0;
-      while (count < GLOBAL_args->mesh_data->num_bounces) {
-
-          // Cast next light spot
-          Hit hit = Hit();
-          Ray ray = Ray(cur_position, cur_dir);
-          bool intersect = GLOBAL_args->raytracer->CastRay(ray, hit, false);
-          RayTree::AddReflectedSegment(ray, 0, hit.getT());
-
-          // if there is no intersection, break
-          if (intersect == false) {
-              //std::cout << "off to background, t = " << hit.getT() << std::endl;
-              break;
-          }
-          LightEndpoint cur_light;
-
-
-          Material* m = hit.getMaterial();
-          cur_color.setx(cur_color.x() * m->getDiffuseColor().x());
-          cur_color.sety(cur_color.y() * m->getDiffuseColor().y());
-          cur_color.setz(cur_color.z() * m->getDiffuseColor().z());
-          cur_light.color = cur_color;
-
-          cur_position = ray.pointAtParameter(hit.getT());
-          cur_light.position = cur_position;
-
-          light_spots.push_back(cur_light);
-
-          cur_dir = hit.getNormal();
-
-          cur_dir += Vec3f(max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2));
-
-          count++;
-      }
-  }
-  //std::cout << light_spots.size() << " lights" << std::endl;
-
-  for (std::vector<LightEndpoint>::iterator itr = light_spots.begin(); itr != light_spots.end(); itr++) {
-      //std::cout << "color: " << itr->color << ", position: " << itr->position << std::endl;
-  }
-
   for (int a = 0; a < as; a++) {
+
+      std::vector<LightEndpoint> light_spots;
+
+      int num_lights = GLOBAL_args->mesh->getLights().size();
+      //std::cout << "generating lights" << std::endl;
+      for (int i = 0; i < num_lights; i++) {
+
+          Face* f = GLOBAL_args->mesh->getLights()[i];
+          LightEndpoint light = LightEndpoint();
+          Vec3f cur_color = f->getMaterial()->getEmittedColor() * f->getArea();
+          light.color = cur_color;
+          Vec3f cur_position = f->computeCentroid();
+          light.position = cur_position;
+          light_spots.push_back(light);
+          Vec3f cur_dir = f->computeNormal() + Vec3f(max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2));
+
+          int count = 0;
+          while (count < GLOBAL_args->mesh_data->num_bounces) {
+
+              // Cast next light spot
+              Hit hit = Hit();
+              Ray ray = Ray(cur_position, cur_dir);
+              bool intersect = GLOBAL_args->raytracer->CastRay(ray, hit, false);
+              RayTree::AddReflectedSegment(ray, 0, hit.getT());
+
+              // if there is no intersection, break
+              if (intersect == false) {
+                  //std::cout << "off to background, t = " << hit.getT() << std::endl;
+                  break;
+              }
+              LightEndpoint cur_light;
+
+
+              Material* m = hit.getMaterial();
+              cur_color.setx(cur_color.x() * m->getDiffuseColor().x());
+              cur_color.sety(cur_color.y() * m->getDiffuseColor().y());
+              cur_color.setz(cur_color.z() * m->getDiffuseColor().z());
+              cur_light.color = cur_color;
+
+              cur_position = ray.pointAtParameter(hit.getT());
+              cur_light.position = cur_position;
+
+              light_spots.push_back(cur_light);
+
+              cur_dir = hit.getNormal();
+
+              cur_dir += Vec3f(max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2));
+
+              count++;
+          }
+      }
+      //std::cout << light_spots.size() << " lights" << std::endl;
+
+  
       // Here's what we do with a single sample per pixel:
       // construct & trace a ray through the center of the pixel
       double x_offset = 0.5;
