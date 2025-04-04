@@ -42,6 +42,9 @@ public:
   static bool controlKeyPressed;
   static bool altKeyPressed;
   static bool superKeyPressed;
+  // MPM sim
+  static bool sim_paused;
+  static bool sim_step_once;
 
   static void initialize(ArgParser *_args, MeshData *_mesh_data, OpenGLRenderer *_renderer);
 

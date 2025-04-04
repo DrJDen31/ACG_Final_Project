@@ -18,7 +18,8 @@ public:
   void updateVBOs();
   void drawVBOs(const glm::mat4 &MVP,const glm::mat4 &M,const glm::mat4 &V);
   void cleanupVBOs();
-  
+  void cleanupMPM();
+
 private:
 
   // private helper functions for VBOs
@@ -29,7 +30,6 @@ private:
   // mpm-related helpers
   void setupMPM();
   void drawMPM() const;
-  void cleanupMPM();
 
   // REPRESENTATION
   MeshData *mesh_data;
