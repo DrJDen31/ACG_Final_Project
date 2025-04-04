@@ -28,6 +28,9 @@ bool OpenGLCanvas::shiftKeyPressed = false;
 bool OpenGLCanvas::controlKeyPressed = false;
 bool OpenGLCanvas::altKeyPressed = false;
 bool OpenGLCanvas::superKeyPressed = false;
+// MPM sim
+bool OpenGLCanvas::sim_paused = true;
+bool OpenGLCanvas::sim_step_once = false;
 
 // ========================================================
 // Initialize all appropriate OpenGL variables, set
@@ -252,26 +255,37 @@ void OpenGLCanvas::keyboardCB(GLFWwindow* /*window*/, int key, int /*scancode*/,
     }
     case 'p':  case 'P': {
       // trace photons
-      PhotonMappingTracePhotons();
-      break; 
+      /*PhotonMappingTracePhotons();*/
+      /*break; */
+      sim_paused = !sim_paused;
+      printf(sim_paused ? "Simulation paused\n" : "Simulation resumed\n");
+      break;
     }
 
     case ' ': {
       // a single step of radiosity
-      RadiosityIterate();
-      break; 
+      /*RadiosityIterate();*/
+      /*break; */
+      if (sim_paused) {
+        sim_step_once = true;
+        printf("Stepping simulation one frame\n");
+      }
+      break;
     }
     case 'a': case 'A': {
       // animate radiosity solution
-      mesh_data->raytracing_animation = false;
-      if (!mesh_data->radiosity_animation) {
-        printf ("radiosity animation started, press 'X' to stop\n");
-        mesh_data->radiosity_animation = true;
-      } else {
-        printf ("radiosity animation re-started, press 'X' to stop\n");
-      }
-      RadiosityClear();
-      break; 
+      /*mesh_data->raytracing_animation = false;*/
+      /*if (!mesh_data->radiosity_animation) {*/
+      /*  printf ("radiosity animation started, press 'X' to stop\n");*/
+      /*  mesh_data->radiosity_animation = true;*/
+      /*} else {*/
+      /*  printf ("radiosity animation re-started, press 'X' to stop\n");*/
+      /*}*/
+      /*RadiosityClear();*/
+      /*break; */
+      sim_paused = false;
+      printf("Simulation started\n");
+      break;
     }
     case 's':  case 'S': {
       // subdivide the mesh for radiosity
@@ -284,7 +298,9 @@ void OpenGLCanvas::keyboardCB(GLFWwindow* /*window*/, int key, int /*scancode*/,
       RadiosityClear();
       RaytracerClear();
       PhotonMappingClear();
-      break; 
+      OpenGLCanvas::renderer->cleanupMPM();
+      printf("MPM simulation reset\n");
+      break;
     }
     case 'x':  case 'X': {
       if (mesh_data->raytracing_animation) {

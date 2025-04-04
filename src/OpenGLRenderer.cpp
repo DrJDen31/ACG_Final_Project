@@ -280,30 +280,11 @@ void saveFrame(int frameCount, GLFWwindow* window) {
     file.close();
 }
 
-// NOTE: Just to analize frame time. Not important
-void trackSimSpeed(float dt) {
-    static float simTime = 0.0f;
-    static auto last = std::chrono::high_resolution_clock::now();
-    static int frames = 0;
-
-    simTime += dt;
-    frames++;
-
-    auto now = std::chrono::high_resolution_clock::now();
-    float realElapsed = std::chrono::duration<float>(now - last).count();
-
-    if (realElapsed >= 1.0f) {
-        float simPerReal = simTime / realElapsed;
-        std::cout << "\rSim seconds per real second: " << std::fixed << std::setprecision(4) << simPerReal << std::flush;
-        simTime = 0.0f;
-        frames = 0;
-        last = now;
-    }
-}
-
 void OpenGLRenderer::drawMPM() const {
-    mpm_sim->step();
-    trackSimSpeed(1.0f / 2400.0f);
+    if (!OpenGLCanvas::sim_paused || OpenGLCanvas::sim_step_once) {
+        mpm_sim->step();
+        OpenGLCanvas::sim_step_once = false;
+    }
     const std::vector<Particle>& particles = mpm_sim->getParticles();
     std::vector<float> data;
     data.reserve(particles.size() * 2);
@@ -333,7 +314,7 @@ void OpenGLRenderer::drawMPM() const {
 
 void OpenGLRenderer::cleanupMPM() {
     delete mpm_sim;
-    mpm_sim = nullptr;
+    setupMPM();
 }
 
 // ====================================================================
