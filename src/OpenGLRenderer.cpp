@@ -290,30 +290,10 @@ void saveFrame(int frameCount, GLFWwindow* window) {
 }
 
 void OpenGLRenderer::drawMPM() const {
-    /*if (!OpenGLCanvas::sim_paused || OpenGLCanvas::sim_step_once) {*/
-        static float total_slowdown = 0.0f;
-        static int frame_count = 0;
-        static auto last_print = std::chrono::high_resolution_clock::now();
-
-        auto start = std::chrono::high_resolution_clock::now();
+    if (!OpenGLCanvas::sim_paused || OpenGLCanvas::sim_step_once) {
         mpm_sim->step();
-        auto end = std::chrono::high_resolution_clock::now();
-
-        float real_time = std::chrono::duration<float>(end - start).count();
-        float slowdown = real_time / dt;
-
-        total_slowdown += slowdown;
-        frame_count++;
-
-        auto now = std::chrono::high_resolution_clock::now();
-        if (std::chrono::duration<float>(now - last_print).count() >= 1.0f) {
-            float avg_slowdown = total_slowdown / frame_count;
-            std::cout << std::fixed << std::setprecision(5)
-                      << "\rAvg slowdown: " << avg_slowdown << "x" << std::flush;
-            last_print = now;
-        }
         OpenGLCanvas::sim_step_once = false;
-    /*}*/
+    }
 
     const std::vector<Particle>& particles = mpm_sim->getParticles();
     std::vector<float> data;
