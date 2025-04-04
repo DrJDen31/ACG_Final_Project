@@ -73,6 +73,10 @@ void ArgParser::DefaultValues() {
   mesh_data->meshPointCount_allocated = 0;
 
   mesh_data->bounding_box_frame = false;
+
+  // MPM Simulation
+  mesh_data->num_particles = 400;
+  mesh_data->dt = 1200;
 }
 
 
@@ -137,6 +141,13 @@ ArgParser::ArgParser(int argc, const char *argv[], MeshData *_mesh_data) {
       mesh_data->num_photons_to_collect = atoi(argv[i]);
     } else if (std::string(argv[i]) == std::string("--gather_indirect")) {
       mesh_data->gather_indirect = true;
+
+    } else if (std::string(argv[i]) == "--num_particles") {
+      i++; assert(i < argc);
+      mesh_data->num_particles = atoi(argv[i]);
+    } else if (std::string(argv[i]) == "--dt") {
+      i++; assert(i < argc);
+      mesh_data->dt = atof(argv[i]);
     } else {
       std::cout << "ERROR: unknown command line argument " 
                 << i << ": '" << argv[i] << "'" << std::endl;

@@ -82,7 +82,10 @@ typedef struct MeshData {
   
   float16 proj_mat;
   float16 view_mat;
-  
+
+  // MPM Simulation
+  int num_particles;
+  float dt;
 } MeshData;
 
 

@@ -2,6 +2,7 @@
 #define MESH_H
 
 #include <vector>
+#include <glm/glm.hpp>
 #include "hash.h"
 #include "material.h"
 
@@ -104,6 +105,16 @@ public:
   // OTHER FUNCTIONS
   void Subdivision();
 
+
+  // MPM
+  glm::vec3 getMPMVelocity() const { return mpm_velocity; }
+  glm::vec3 getMPMCenter() const { return mpm_center; }
+  glm::vec3 getMPMSize() const { return mpm_size; }
+  float getMPMMass() const { return mpm_mass; }
+  float getMPMVolume() const { return mpm_volume; }
+  float getMPMRadius() const { return mpm_radius; }
+  std::string getMPMRegionType() const { return mpm_region_type; }
+
 private:
 
   // ==================================================
@@ -141,6 +152,11 @@ private:
   std::vector<Face*> rasterized_primitive_faces;
   // the quads from the .obj file after subdivision
   std::vector<Face*> subdivided_quads;
+
+  // MPM vars
+  glm::vec3 mpm_velocity, mpm_center, mpm_size;
+  float mpm_mass = 1.0f, mpm_volume = 1.0f, mpm_radius = 1.0f;
+  std::string mpm_region_type = "cartesian";
 };
 
 // ======================================================================

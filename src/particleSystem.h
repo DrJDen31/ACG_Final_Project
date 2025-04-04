@@ -2,6 +2,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include "grid.h"
+#include <string>
 
 struct Particle {
   glm::vec3 x; // position
@@ -15,7 +16,9 @@ struct Particle {
 
 class ParticleSystem {
 public:
-  ParticleSystem(int count, int gridSize);
+ParticleSystem(int count, glm::vec3 velocity, glm::vec3 center,
+               glm::vec3 size, float mass, float volume, float radius,
+               const std::string& region);
   const std::vector<Particle>& getParticles() const { return particles; }
   std::vector<Particle>& getParticles() { return particles; }
   void update(Particle& p);
