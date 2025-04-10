@@ -214,8 +214,8 @@ void MPM::g2p() {
 
 bool MPM::intersect(const Ray& r, Hit& h) const {
     // snow material, should move to somewhere global or file configured
-    Vec3f diffuse = Vec3f(0.1f, 0.9f, 0.1f);
-    Vec3f reflective = Vec3f(0.0f, 0.0f, 0.0f);
+    Vec3f diffuse = Vec3f(0.9f, 0.9f, 0.9f);
+    Vec3f reflective = Vec3f(0.1f, 0.1f, 0.1f);
     Vec3f emitted = Vec3f(0.0f, 0.0f, 0.0f);
     float roughness = 0.3;
     Material* material = new Material("", diffuse, reflective, emitted, roughness);
@@ -268,6 +268,11 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
                 t = ts;
                 collision = true;
                 normal = Vec3f(p.normal.x, p.normal.y, p.normal.z);
+                /* CONSIDER: checks on normals
+                if (normal.Dot3(r.getDirection()) > 0) {
+                    normal.Negate();
+                }
+                */
             }
         }
     }
