@@ -244,7 +244,7 @@ void OpenGLRenderer::cleanupMesh() {
 // ====================================================================
 
 void OpenGLRenderer::setupMPM() {
-    int numParticles = 400;
+    int numParticles = GLOBAL_args->mesh_data->num_particles;
     int gridSize = 64;
     mpm_sim = new MPM(gridSize, numParticles);
 
@@ -273,6 +273,13 @@ void saveFrame(int frameCount, GLFWwindow* window) {
 
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
 
+    // Flip vertically
+    for (int y = 0; y < height / 2; ++y) {
+        for (int x = 0; x < width * 3; ++x) {
+            std::swap(pixels[y * width * 3 + x], pixels[(height - 1 - y) * width * 3 + x]);
+        }
+    }
+
     std::ostringstream filename;
     filename << "frames/frame_" << std::setw(4) << std::setfill('0') << frameCount << ".ppm";
 
@@ -287,6 +294,7 @@ void OpenGLRenderer::drawMPM() const {
         mpm_sim->step();
         OpenGLCanvas::sim_step_once = false;
     }
+
     const std::vector<Particle>& particles = mpm_sim->getParticles();
     std::vector<float> data;
     data.reserve(particles.size() * 2);
@@ -307,8 +315,8 @@ void OpenGLRenderer::drawMPM() const {
     glDrawArrays(GL_POINTS, 0, mpm_sim->getParticles().size());
 
     // NOTE: for recording. Not important to sim
-    // static int frameID = 0;
-    // saveFrame(frameID++, OpenGLCanvas::window);
+    static int frameID = 0;
+    saveFrame(frameID++, OpenGLCanvas::window);
 
     glBindVertexArray(0);
 }

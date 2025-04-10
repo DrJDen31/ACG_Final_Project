@@ -17,7 +17,6 @@
 #include "hit.h"
 #include "camera.h"
 
-
 // =======================================================================
 // DESTRUCTOR
 // =======================================================================
@@ -261,6 +260,25 @@ void Mesh::Load(ArgParser *_args) {
       objfile >> r >> g >> b;
       emitted = Vec3f(r,g,b);
       materials.push_back(new Material(texture_file,diffuse,reflective,emitted,roughness));
+    } else if ("MPM") {
+        // mesh.cpp (inside Mesh::Load)
+        if (token == "velocity") {
+            objfile >> mpm_velocity.x >> mpm_velocity.y >> mpm_velocity.z;
+        } else if (token == "mass") {
+            objfile >> mpm_mass;
+        } else if (token == "volume") {
+            objfile >> mpm_volume;
+        } else if (token == "region_cartesian") {
+            mpm_region_type = "cartesian";
+        } else if (token == "region_spherical") {
+            mpm_region_type = "spherical";
+        } else if (token == "center") {
+            objfile >> mpm_center.x >> mpm_center.y >> mpm_center.z;
+        } else if (token == "dimensions") {
+            objfile >> mpm_size.x >> mpm_size.y >> mpm_size.z;
+        } else if (token == "radius") {
+            objfile >> mpm_radius;
+        }
     } else {
       std::cout << "UNKNOWN TOKEN " << token << std::endl;
       exit(0);
