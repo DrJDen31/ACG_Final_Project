@@ -32,4 +32,11 @@ PerspectiveCamera {
   angle              30
 }
 
+MPM
+velocity 4.5 20 4.5
+mass 10
+volume 10
+region_spherical
+center 32 32 32
+radius 12
 

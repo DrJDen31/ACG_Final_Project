@@ -355,8 +355,9 @@ Vec3f VisualizeTraceRay(double i, double j) {
           light_spots.push_back(light);
           Vec3f cur_dir = f->computeNormal() + Vec3f(max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2), max_rand * ((GLOBAL_args->rand() - 0.5) * 2));
 
+
           int count = 0;
-          while (count < GLOBAL_args->mesh_data->num_bounces) {
+          while (count < 10) {  //GLOBAL_args->mesh_data->num_bounces
 
               // Cast next light spot
               Hit hit = Hit();
@@ -373,9 +374,16 @@ Vec3f VisualizeTraceRay(double i, double j) {
 
 
               Material* m = hit.getMaterial();
-              cur_color.setx(cur_color.x() * m->getDiffuseColor().x());
-              cur_color.sety(cur_color.y() * m->getDiffuseColor().y());
-              cur_color.setz(cur_color.z() * m->getDiffuseColor().z());
+              if (m->getReflectiveColor().Length() > 0.001) {
+                  cur_color.setx(cur_color.x() * m->getReflectiveColor().x());
+                  cur_color.sety(cur_color.y() * m->getReflectiveColor().y());
+                  cur_color.setz(cur_color.z() * m->getReflectiveColor().z());
+              }
+              else {
+                  cur_color.setx(cur_color.x() * m->getDiffuseColor().x() * m->getRoughness());
+                  cur_color.sety(cur_color.y() * m->getDiffuseColor().y() * m->getRoughness());
+                  cur_color.setz(cur_color.z() * m->getDiffuseColor().z() * m->getRoughness());
+              }
               cur_light.color = cur_color;
 
               cur_position = ray.pointAtParameter(hit.getT());
@@ -398,8 +406,8 @@ Vec3f VisualizeTraceRay(double i, double j) {
       double x_offset = 0.5;
       double y_offset = 0.5;
       if (a != 0) {
-          x_offset = 0.5 + (0.005 * (0.5 - GLOBAL_args->rand()));
-          y_offset = 0.5 + (0.005 * (0.5 - GLOBAL_args->rand()));
+          x_offset = 0.5 + (0.01 * (0.5 - GLOBAL_args->rand()));
+          y_offset = 0.5 + (0.01 * (0.5 - GLOBAL_args->rand()));
       }
       //std::cout << x_offset << ", " << y_offset << std::endl;
       double x = (i - GLOBAL_args->mesh_data->width / 2.0) / double(max_d) + x_offset;

@@ -219,8 +219,8 @@ void MPM::g2p() {
 
 bool MPM::intersect(const Ray& r, Hit& h) const {
     // snow material, should move to somewhere global or file configured
-    Vec3f diffuse = Vec3f(0.9f, 0.9f, 0.9f);
-    Vec3f reflective = Vec3f(0.1f, 0.1f, 0.1f);
+    Vec3f diffuse = Vec3f(0.75f, 0.85f, 0.75f);
+    Vec3f reflective = Vec3f(0.0f, 0.0f, 0.0f);
     Vec3f emitted = Vec3f(0.0f, 0.0f, 0.0f);
     float roughness = 0.3;
     Material* material = new Material("", diffuse, reflective, emitted, roughness);
@@ -235,6 +235,10 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
     double t = -1;
     bool collision = false;
 
+    // find center of mass
+    bool found_center = false;
+    Vec3f center_of_mass = Vec3f(0, 0, 0);
+
     // for each particle, check if we intersect it
     for (int i = 0; i < particleList.size(); i++) {
         int print_num = 0;
@@ -247,6 +251,7 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
             std::cout << "ray dir: " << r.getDirection() << std::endl;
         }
 
+        // X
         // determine where the point would be along the ray given it's x value
         double delta_x = pos.x() - r.getOrigin().x();
         double ts = delta_x / r.getDirection().x();
@@ -255,24 +260,70 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
         Vec3f cast = pos - r.getOrigin();
         cast.Normalize();
 
+        // if we are close enough to expected position, register collision
+        Vec3f distance = projected - pos;
+
+        // Y
+        // determine where the point would be along the ray given it's y value
+        double delta_y = pos.y() - r.getOrigin().y();
+        double y_ts = delta_y / r.getDirection().y();
+        Vec3f y_projected = r.pointAtParameter(y_ts);
+
+        cast = pos - r.getOrigin();
+        cast.Normalize();
+
+        // if we are close enough to expected position, register collision
+        Vec3f y_distance = y_projected - pos;
+        if (y_distance.Length() < distance.Length()) {
+            distance = y_distance;
+            projected = y_projected;
+            ts = y_ts;
+        }
+
+        // Z
+        // determine where the point would be along the ray given it's y value
+        double delta_z = pos.z() - r.getOrigin().z();
+        double z_ts = delta_z / r.getDirection().z();
+        Vec3f z_projected = r.pointAtParameter(z_ts);
+
+        cast = pos - r.getOrigin();
+        cast.Normalize();
+
+        // if we are close enough to expected position, register collision
+        Vec3f z_distance = z_projected - pos;
+        if (z_distance.Length() < distance.Length()) {
+            distance = z_distance;
+            projected = z_projected;
+            ts = z_ts;
+        }
+
         if (i < print_num) {
             Ray checker(r.getOrigin(), cast);
             RayTree::AddReflectedSegment(checker, 0, 5);
             std::cout << "particle would be at " << projected << std::endl;
-        }
-
-        // if we are close enough to expected position, register collision
-        Vec3f distance = projected - pos;
-        double threshold = 0.1;
-        if (i < print_num) {
             std::cout << "particle " << distance.Length() << " away" << std::endl;
         }
+
+        double threshold = 0.25;
         if (distance.Length() < threshold) {
+            // find center of mass if not found yet
+            if (!found_center) {
+                for (int j = 0; j < particleList.size(); j++) {
+                    // get the particle's position
+                    Particle p_c = particleList[j];
+                    center_of_mass += Vec3f(p_c.x.x / 64.0f * 2.0f - 1.0f, p_c.x.y / 64.0f * 2.0f - 1.0f, p_c.x.z / 64.0f * 2.0f - 1.0f);
+                }
+                center_of_mass *= 1 / (particleList.size());
+            }
+
             // check if new closest hit
             if ((t == -1 || ts < t) && ts > 0) {
                 t = ts;
                 collision = true;
-                normal = Vec3f(p.normal.x, p.normal.y, p.normal.z);
+                Vec3f dir_from_center = projected - center_of_mass;
+                normal = dir_from_center;
+                normal.Normalize();
+                //normal = Vec3f(p.normal.x, p.normal.y, p.normal.z);
                 /* CONSIDER: checks on normals
                 if (normal.Dot3(r.getDirection()) > 0) {
                     normal.Negate();
