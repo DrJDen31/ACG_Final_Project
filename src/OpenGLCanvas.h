@@ -45,6 +45,7 @@ public:
   // MPM sim
   static bool sim_paused;
   static bool sim_step_once;
+  static bool render_mpm_movie;
 
   static void initialize(ArgParser *_args, MeshData *_mesh_data, OpenGLRenderer *_renderer);
 
