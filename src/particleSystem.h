@@ -1,8 +1,8 @@
 #pragma once
 #include <vector>
 #include <glm/glm.hpp>
-#include "grid.h"
 #include <string>
+#include "mesh.h"
 
 struct Particle {
   glm::vec3 x; // position
@@ -16,9 +16,7 @@ struct Particle {
 
 class ParticleSystem {
 public:
-ParticleSystem(int count, glm::vec3 velocity, glm::vec3 center,
-               glm::vec3 size, float mass, float volume, float radius,
-               const std::string& region);
+  ParticleSystem(const std::vector<MPMObject>& objects);
   const std::vector<Particle>& getParticles() const { return particles; }
   std::vector<Particle>& getParticles() { return particles; }
   void update(Particle& p);

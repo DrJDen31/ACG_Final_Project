@@ -75,8 +75,8 @@ void ArgParser::DefaultValues() {
   mesh_data->bounding_box_frame = false;
 
   // MPM Simulation
-  mesh_data->num_particles = 400;
-  mesh_data->dt = 1200;
+  mesh_data->num_particles = 100;
+  mesh_data->dt = 60;
 }
 
 

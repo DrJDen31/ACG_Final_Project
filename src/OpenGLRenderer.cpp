@@ -244,9 +244,16 @@ void OpenGLRenderer::cleanupMesh() {
 // ====================================================================
 
 void OpenGLRenderer::setupMPM() {
-    int numParticles = GLOBAL_args->mesh_data->num_particles;
-    int gridSize = 64;
-    mpm_sim = new MPM(gridSize, numParticles);
+    int gridSize = 128; // FIXME: make parameter (increased from 64)
+    const auto& objects = GLOBAL_args->mesh->getAllMPMObjects();
+
+    // Count total particles
+    int totalParticles = 0;
+    for (const auto& obj : objects) {
+        totalParticles += obj.particle_count;
+    }
+
+    mpm_sim = new MPM(gridSize, objects);
 
     GLOBAL_args->mpm = mpm_sim;
 
@@ -257,10 +264,9 @@ void OpenGLRenderer::setupMPM() {
     glBindBuffer(GL_ARRAY_BUFFER, mpm_debug_VBO);
 
     // Allocate space for positions, will update later
-    glBufferData(GL_ARRAY_BUFFER, numParticles * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, totalParticles * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-
 
     glBindVertexArray(0);
 }

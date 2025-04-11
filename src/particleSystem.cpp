@@ -1,3 +1,4 @@
+#include "mpm.h"
 #include "particleSystem.h"
 
 #ifdef _WIN32
@@ -9,47 +10,49 @@
 
 #define M_PI 3.14159265358979323846
 
-ParticleSystem::ParticleSystem(int count, glm::vec3 velocity, glm::vec3 center,
-                               glm::vec3 size, float mass, float volume, float radius,
-                               const std::string& region) {
+ParticleSystem::ParticleSystem(const std::vector<MPMObject>& objects) {
     particles.clear();
 
-    for (int i = 0; i < count; ++i) {
-        Particle p;
+    for (const auto& obj : objects) {
+        for (int i = 0; i < obj.particle_count; ++i) {
+            Particle p;
+            glm::vec3 offset;
 
-        // Pick shape method based on region
-        glm::vec3 offset;
-        if (region == "spherical") {
-            float theta = static_cast<float>(rand()) / RAND_MAX * 2.0f * M_PI;
-            float phi   = static_cast<float>(rand()) / RAND_MAX * M_PI;
-            float r     = static_cast<float>(rand()) / RAND_MAX * radius;
+            if (obj.region_type == "spherical") {
+                float theta = static_cast<float>(rand()) / RAND_MAX * 2.0f * M_PI;
+                float phi   = static_cast<float>(rand()) / RAND_MAX * M_PI;
+                float r     = static_cast<float>(rand()) / RAND_MAX * obj.radius;
 
-            offset = glm::vec3(
-                r * sin(phi) * cos(theta),
-                r * sin(phi) * sin(theta),
-                r * cos(phi)
-            );
-        } else { // cartesian (cube)
-            offset = glm::vec3(
-                (static_cast<float>(rand()) / RAND_MAX - 0.5f) * size.x,
-                (static_cast<float>(rand()) / RAND_MAX - 0.5f) * size.y,
-                (static_cast<float>(rand()) / RAND_MAX - 0.5f) * size.z
-            );
+                offset = glm::vec3(
+                    r * sin(phi) * cos(theta),
+                    r * sin(phi) * sin(theta),
+                    r * cos(phi)
+                );
+            } else {
+                offset = glm::vec3(
+                    (static_cast<float>(rand()) / RAND_MAX - 0.5f) * obj.size.x,
+                    (static_cast<float>(rand()) / RAND_MAX - 0.5f) * obj.size.y,
+                    (static_cast<float>(rand()) / RAND_MAX - 0.5f) * obj.size.z
+                );
+            }
+
+            p.x = obj.center + offset;
+            p.v = obj.velocity;
+            p.mass = obj.mass;
+            p.volume_0 = obj.volume;
+            p.F = glm::mat3(1.0f);
+            p.C = glm::mat3(0.0f);
+            p.normal = glm::normalize(glm::vec3(
+                static_cast<float>(rand()) / RAND_MAX,
+                static_cast<float>(rand()) / RAND_MAX,
+                static_cast<float>(rand()) / RAND_MAX
+            ));
+
+            particles.push_back(p);
         }
-
-        p.x = center + offset;
-        p.v = velocity;
-        p.mass = mass;
-        p.volume_0 = volume;
-        p.F = glm::mat3(1.0f);
-        p.C = glm::mat3(0.0f);
-
-        // random normal
-        p.normal = glm::vec3(static_cast<float>(rand()) / RAND_MAX, static_cast<float>(rand()) / RAND_MAX, static_cast<float>(rand()) / RAND_MAX);
-
-        particles.push_back(p);
     }
 }
+
 
 // 4.4: advect particle positions by their velocity
 void ParticleSystem::update(Particle& p) {
