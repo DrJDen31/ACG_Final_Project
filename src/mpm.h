@@ -1,6 +1,7 @@
 #pragma once
 #include "grid.h"
 #include "particleSystem.h"
+#include "mesh.h"
 
 struct Weights {
     glm::ivec3 base;
@@ -13,7 +14,7 @@ class Hit;
 
 class MPM {
 public:
-    MPM(int gridSize, int particleCount);
+    MPM(int gridSize, const std::vector<MPMObject>& objects);
     std::vector<Particle>& getParticles() { return particles.getParticles(); }
     void step();
     void draw() const;
@@ -27,4 +28,8 @@ private:
 
     Grid grid;
     ParticleSystem particles;
+
+    // Paramters for simulation
+    float mu; // shear modulus
+    float lambda; // bulk modulus
 };

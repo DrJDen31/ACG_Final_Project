@@ -261,24 +261,44 @@ void Mesh::Load(ArgParser *_args) {
       emitted = Vec3f(r,g,b);
       materials.push_back(new Material(texture_file,diffuse,reflective,emitted,roughness));
     } else if ("MPM") {
+        MPMObject obj;
+        // Inital parameters
+        obj.velocity = glm::vec3(0.0f);
+        obj.center = glm::vec3(0.0f);
+        obj.size = glm::vec3(1.0f);
+        obj.radius = 1.0f;
+        obj.mass = 1.0f;
+        obj.volume = 1.0f;
+        obj.region_type = "cartesian";
+        obj.particle_count = 100;
+
         // mesh.cpp (inside Mesh::Load)
-        if (token == "velocity") {
-            objfile >> mpm_velocity.x >> mpm_velocity.y >> mpm_velocity.z;
-        } else if (token == "mass") {
-            objfile >> mpm_mass;
-        } else if (token == "volume") {
-            objfile >> mpm_volume;
-        } else if (token == "region_cartesian") {
-            mpm_region_type = "cartesian";
-        } else if (token == "region_spherical") {
-            mpm_region_type = "spherical";
-        } else if (token == "center") {
-            objfile >> mpm_center.x >> mpm_center.y >> mpm_center.z;
-        } else if (token == "dimensions") {
-            objfile >> mpm_size.x >> mpm_size.y >> mpm_size.z;
-        } else if (token == "radius") {
-            objfile >> mpm_radius;
-        }
+        while (objfile >> token) {
+          if (token == "velocity") {
+              objfile >> obj.velocity.x >> obj.velocity.y >> obj.velocity.z;
+          } else if (token == "mass") {
+              objfile >> obj.mass;
+          } else if (token == "volume") {
+              objfile >> obj.volume;
+          } else if (token == "region_cartesian") {
+              obj.region_type = "cartesian";
+          } else if (token == "region_spherical") {
+              obj.region_type = "spherical";
+          } else if (token == "center") {
+              objfile >> obj.center.x >> obj.center.y >> obj.center.z;
+          } else if (token == "dimensions") {
+              objfile >> obj.size.x >> obj.size.y >> obj.size.z;
+          } else if (token == "radius") {
+              objfile >> obj.radius;
+          } else if (token == "count") {
+              objfile >> obj.particle_count;
+          } else if (token == "MPM_END") {
+              mpm_objects.push_back(obj);
+              break; // break out of this MPM block
+          } else {
+              std::cout << "Unknown MPM param: " << token << std::endl;
+          }
+      }
     } else {
       std::cout << "UNKNOWN TOKEN " << token << std::endl;
       exit(0);

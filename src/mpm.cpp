@@ -21,19 +21,17 @@
 #include "raytree.h"
 
 
-MPM::MPM(int gridSize, int particleCount)
+MPM::MPM(int gridSize, const std::vector<MPMObject>& objects)
     // 1.  initialise grid - fill your grid array with (grid_res * grid_res) cells.
     : grid(gridSize),
 
     // 2. create a bunch of particles. set their positions somewhere in your simulation domain.
-    particles(particleCount, GLOBAL_args->mesh->getMPMVelocity(),
-        GLOBAL_args->mesh->getMPMCenter(), GLOBAL_args->mesh->getMPMSize(),
-        GLOBAL_args->mesh->getMPMMass(), GLOBAL_args->mesh->getMPMVolume(),
-        GLOBAL_args->mesh->getMPMRadius(), GLOBAL_args->mesh->getMPMRegionType()
-    ) {
+    particles(objects) {
     // initialise their deformation gradients to the identity matrix, as they're in their undeformed state.
 
     // 3. optionally precompute state variables e.g. particle initial volume, if your model calls for it
+    mu = 400.0f;
+    lambda = 800.0f;
 }
 
 void MPM::step() {
@@ -105,8 +103,6 @@ void MPM::p2g() {
         glm::mat3 F_minus_F_inv_T = F - F_inv_T;
 
         // Tunable parameters // TODO: put in initalizer
-        float mu = 2000.0f; // shear modulus
-        float lambda = 1800.0f; // bulk modulus
 
         // Cauvhy stress = (1 / det(F)) * P *F_T
         glm::mat3 P = mu * F_minus_F_inv_T + lambda * std::log(J) * F_inv_T;

@@ -33,11 +33,21 @@ PerspectiveCamera {
 }
 
 MPM
-velocity 4.5 20 4.5
+velocity 0 0 0
 mass 10
 volume 10
 region_spherical
 center 32 32 32
-radius 12
-count 400
+radius 10
+count 250
+MPM_END
+
+MPM
+velocity 0 0 0
+mass 20
+volume 30
+region_cartesian
+center 32 2 32
+dimensions 48 2 48
+count 1000
 MPM_END

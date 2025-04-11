@@ -62,7 +62,6 @@ public:
   BoundingBox *bbox;
 
   MPM* mpm;
-
 };
 
 extern ArgParser *GLOBAL_args;
