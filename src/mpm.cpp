@@ -31,7 +31,7 @@ MPM::MPM(int gridSize, const std::vector<MPMObject>& objects)
 
     // 3. optionally precompute state variables e.g. particle initial volume, if your model calls for it
     mu = 400.0f;
-    lambda = 800.0f;
+    lambda = 600.0f;
 }
 
 void MPM::step() {
@@ -85,67 +85,96 @@ void MPM::p2g() {
     float dx = 1.0f; // Grid cell size
     float inv_dx = 1.0f / dx;
 
-    for (auto& p : particles.getParticles()) {
-        // 2.1: calculate weights for the 3x3 neighbouring cells surrounding the particle's position
-        // on the grid using an interpolation function
-        Weights w = computeWeights(p.x, inv_dx);
+    // Paralle particles
+    const auto& particleList = particles.getParticles();
+    int numThreads = std::thread::hardware_concurrency();
+    std::vector<std::vector<Cell>> stagingGrids(
+        numThreads, std::vector<Cell>(grid.size * grid.size * grid.size)
+    );
 
-        // 2.2: calculate quantities like e.g. stress based on constitutive equation
-        glm::mat3 F = p.F; // deformation gradient
+    // Lambda thread function
+    auto worker = [&](int start, int end, int thread_id) {
+        auto& staging = stagingGrids[thread_id];
 
-        // MPM course page 13, "Kinematics Theory"
-        float J = glm::determinant(F);
-        float volume = p.volume_0 * J;
+        for (int idx = start; idx < end; ++idx) {
+            const Particle& p = particleList[idx];
+            // 2.1: calculate weights for the 3x3 neighbouring cells surrounding the particle's position
+            // on the grid using an interpolation function
+            Weights w = computeWeights(p.x, inv_dx);
 
-        // required terms for Neo-Hookean model (eq. 48, MPM course)
-        glm::mat3 F_T = glm::transpose(F);
-        glm::mat3 F_inv_T = glm::inverse(F_T);
-        glm::mat3 F_minus_F_inv_T = F - F_inv_T;
+            // 2.2: calculate quantities like e.g. stress based on constitutive equation
+            glm::mat3 F = p.F; // deformation gradient
 
-        // Tunable parameters // TODO: put in initalizer
+            // MPM course page 13, "Kinematics Theory"
+            float J = glm::determinant(F);
+            float volume = p.volume_0 * J;
 
-        // Cauvhy stress = (1 / det(F)) * P *F_T
-        glm::mat3 P = mu * F_minus_F_inv_T + lambda * std::log(J) * F_inv_T;
-        glm::mat3 stress = (1.0f / J) * P * F_T;
+            // required terms for Neo-Hookean model (eq. 48, MPM course)
+            glm::mat3 F_T = glm::transpose(F);
+            glm::mat3 F_inv_T = glm::inverse(F_T);
+            glm::mat3 F_minus_F_inv_T = F - F_inv_T;
 
-        // (M_p)^-1 = 4, see APIC paper and MPM course page 42
-        // this term is used in MLS-MPM paper eq. 16. with quadratic weights, Mp = (1/4) * (delta_x)^2.
-        // in this simulation, delta_x = 1, because i scale the rendering of the domain rather than the domain itself.
-        // we multiply by dt as part of the process of fusing the momentum and force update for MLS-MPM
-        glm::mat3 eq16Term0 = -volume * 4.0f * dt * stress;
+            // Tunable parameters // TODO: put in initalizer
 
-        // 2.3:
-        for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-        for (int k = 0; k < 3; ++k) {
-            glm::ivec3 offset(i, j, k);
-            glm::ivec3 node = w.base + offset;
+            // Cauvhy stress = (1 / det(F)) * P *F_T
+            glm::mat3 P = mu * F_minus_F_inv_T + lambda * std::log(J) * F_inv_T;
+            glm::mat3 stress = (1.0f / J) * P * F_T;
 
-            if (node.x < 0 || node.x >= grid.size ||
-                node.y < 0 || node.y >= grid.size ||
-                node.z < 0 || node.z >= grid.size)
-                continue;
+            // (M_p)^-1 = 4, see APIC paper and MPM course page 42
+            // this term is used in MLS-MPM paper eq. 16. with quadratic weights, Mp = (1/4) * (delta_x)^2.
+            // in this simulation, delta_x = 1, because i scale the rendering of the domain rather than the domain itself.
+            // we multiply by dt as part of the process of fusing the momentum and force update for MLS-MPM
+            glm::mat3 eq16Term0 = -volume * 4.0f * dt * stress;
 
-            float weight = w.wx[i] * w.wy[j] * w.wz[k];
-            glm::vec3 dpos = ((glm::vec3(offset) - w.fx) * dx);
+            // 2.3:
+            for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+            for (int k = 0; k < 3; ++k) {
+                glm::ivec3 offset(i, j, k);
+                glm::ivec3 node = w.base + offset;
 
-            Cell& cell = grid.at(node.x, node.y, node.z);
+                if (node.x < 0 || node.x >= grid.size ||
+                    node.y < 0 || node.y >= grid.size ||
+                    node.z < 0 || node.z >= grid.size)
+                    continue;
 
-            // APIC: compute Q = C * dpos
-            glm::vec3 Q = p.C * dpos;
+                float weight = w.wx[i] * w.wy[j] * w.wz[k];
+                glm::vec3 dpos = ((glm::vec3(offset) - w.fx) * dx);
 
-            float weightedMass = weight * p.mass;
-            cell.mass += weightedMass;
+                Cell& cell = grid.at(node.x, node.y, node.z);
 
-            // scatter our particle's momentum to the grid, using the cell's interpolation weight calculated in old 2.1
-            // cell.mass += weight * particleMass;
-            // cell.velocity += weight * particleMass * p.v;
+                // APIC: compute Q = C * dpos
+                glm::vec3 Q = p.C * dpos;
 
-            // New 2.1: Fused momentum + stress force contribution
-            glm::vec3 momentum = weightedMass * (p.v + Q) + eq16Term0 * dpos * weight;
-            cell.velocity += momentum;
+                float weightedMass = weight * p.mass;
+                cell.mass += weightedMass;
+
+                // scatter our particle's momentum to the grid, using the cell's interpolation weight calculated in old 2.1
+                // cell.mass += weight * particleMass;
+                // cell.velocity += weight * particleMass * p.v;
+
+                // New 2.1: Fused momentum + stress force contribution
+                glm::vec3 momentum = weightedMass * (p.v + Q) + eq16Term0 * dpos * weight;
+                cell.velocity += momentum;
+            }
         }
-        }
+    };
+
+    int chunkSize = particleList.size() / numThreads;
+    std::vector<std::thread> threads;
+
+    for (int t = 0; t < numThreads; ++t) {
+        int start = t * chunkSize;
+        int end = (t == numThreads - 1) ? particleList.size() : (t + 1) * chunkSize;
+        threads.emplace_back(worker, start, end, t);
+    }
+    for (auto& th : threads) th.join();
+
+    // Merge thread-local staging into actual grid
+    for (int i = 0; i < grid.size * grid.size * grid.size; ++i) {
+        for (int t = 0; t < numThreads; ++t) {
+            grid.cells[i].mass     += stagingGrids[t][i].mass;
+            grid.cells[i].velocity += stagingGrids[t][i].velocity;
         }
     }
 }
