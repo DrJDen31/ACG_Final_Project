@@ -31,6 +31,7 @@ bool OpenGLCanvas::superKeyPressed = false;
 // MPM sim
 bool OpenGLCanvas::sim_paused = true;
 bool OpenGLCanvas::sim_step_once = false;
+bool OpenGLCanvas::render_mpm_movie = false;
 
 // ========================================================
 // Initialize all appropriate OpenGL variables, set
@@ -315,7 +316,18 @@ void OpenGLCanvas::keyboardCB(GLFWwindow* /*window*/, int key, int /*scancode*/,
       }
       mesh_data->raytracing_animation = false;
       mesh_data->radiosity_animation = false;
+      if (render_mpm_movie) {
+        printf("MPM movie mode disabled.\n");
+        render_mpm_movie = false;
+      }
       break; 
+    }
+    case 'm': case 'M': {
+      if (!render_mpm_movie) {
+        printf("MPM raytraced movie mode activated. Rendering will begin.\n");
+        render_mpm_movie = true;
+      }
+      break;
     }
 
     // VISUALIZATIONS

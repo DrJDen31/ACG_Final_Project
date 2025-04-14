@@ -295,11 +295,53 @@ void saveFrame(int frameCount, GLFWwindow* window) {
     file.close();
 }
 
+void RenderAndSaveRaytracedFrame(int frameID) {
+    // Reset and enable raytracing
+    RaytracerClear();
+
+    // Required setup (copied from 'r' key logic)
+    GLOBAL_args->mesh_data->gather_indirect = false;
+    GLOBAL_args->mesh_data->raytracing_animation = true;
+
+    if (GLOBAL_args->mesh_data->width <= GLOBAL_args->mesh_data->height) {
+        GLOBAL_args->mesh_data->raytracing_divs_x = 10;
+        GLOBAL_args->mesh_data->raytracing_divs_y = 10 * GLOBAL_args->mesh_data->height / (float)(GLOBAL_args->mesh_data->width);
+    } else {
+        GLOBAL_args->mesh_data->raytracing_divs_x = 10 * GLOBAL_args->mesh_data->width / (float)(GLOBAL_args->mesh_data->height);
+        GLOBAL_args->mesh_data->raytracing_divs_y = 10;
+    }
+    GLOBAL_args->mesh_data->raytracing_x = 0;
+    GLOBAL_args->mesh_data->raytracing_y = 0;
+
+    // Fully raytrace the frame
+    for (int i = 0; i < 7000; i++)
+      DrawPixel();
+
+    // Pack the rendered pixels into a framebuffer
+    PackMesh();
+
+    // Now save from OpenGL buffer
+    saveFrame(frameID, OpenGLCanvas::window);
+}
+
+
 void OpenGLRenderer::drawMPM() const {
-    if (!OpenGLCanvas::sim_paused || OpenGLCanvas::sim_step_once) {
+    if ((!OpenGLCanvas::sim_paused || OpenGLCanvas::sim_step_once) && !OpenGLCanvas::render_mpm_movie) {
         mpm_sim->step();
         OpenGLCanvas::sim_step_once = false;
     }
+
+    // Render frames
+    if (OpenGLCanvas::render_mpm_movie) {
+        // Ensure paused
+        OpenGLCanvas::sim_paused = true;
+        OpenGLCanvas::sim_step_once = false;
+
+        static int frameID = 0;
+        mpm_sim->step();
+        RenderAndSaveRaytracedFrame(frameID++);
+    }
+
 
     const std::vector<Particle>& particles = mpm_sim->getParticles();
     std::vector<float> data;
