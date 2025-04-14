@@ -215,7 +215,7 @@ void MPM::g2p() {
 
 bool MPM::intersect(const Ray& r, Hit& h) const {
     // snow material, should move to somewhere global or file configured
-    Vec3f diffuse = Vec3f(0.75f, 0.85f, 0.75f);
+    Vec3f diffuse = Vec3f(0.75f, 0.80f, 0.85f);
     Vec3f reflective = Vec3f(0.0f, 0.0f, 0.0f);
     Vec3f emitted = Vec3f(0.0f, 0.0f, 0.0f);
     float roughness = 0.3;
@@ -300,7 +300,7 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
             std::cout << "particle " << distance.Length() << " away" << std::endl;
         }
 
-        double threshold = 0.25;
+        double threshold = 0.15;
         if (distance.Length() < threshold) {
             // find center of mass if not found yet
             if (!found_center) {
@@ -313,10 +313,11 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
             }
 
             // check if new closest hit
+            ts -= (threshold - distance.Length());
             if ((t == -1 || ts < t) && ts > 0) {
                 t = ts;
                 collision = true;
-                Vec3f dir_from_center = projected - center_of_mass;
+                Vec3f dir_from_center = Vec3f(p.x.x, p.x.y, p.x.z) - r.pointAtParameter(ts); //center_of_mass;
                 normal = dir_from_center;
                 normal.Normalize();
                 //normal = Vec3f(p.normal.x, p.normal.y, p.normal.z);

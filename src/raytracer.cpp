@@ -211,6 +211,16 @@ Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> light
             srgb_to_linear(mesh->background_color.b()));
     }
 
+    // If we hit MPM, march towards it
+    /*
+    if () {
+        bool found = false;
+        while (!found) {
+
+        }
+    }
+    */
+
     // otherwise decide what to do based on the material
     Material* m = hit.getMaterial();
     assert(m != NULL);
