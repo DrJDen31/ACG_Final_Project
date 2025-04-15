@@ -20,7 +20,6 @@
 
 #include "raytree.h"
 
-
 MPM::MPM(int gridSize, const std::vector<MPMObject>& objects)
     // 1.  initialise grid - fill your grid array with (grid_res * grid_res) cells.
     : grid(gridSize),
@@ -30,8 +29,11 @@ MPM::MPM(int gridSize, const std::vector<MPMObject>& objects)
     // initialise their deformation gradients to the identity matrix, as they're in their undeformed state.
 
     // 3. optionally precompute state variables e.g. particle initial volume, if your model calls for it
-    mu = 400.0f;
-    lambda = 600.0f;
+    // mu = 20.0f;
+    // lambda = 150.0f;
+    mu = 1.0f;
+    lambda = 1.0f;
+    enablePlasticity = false;
 }
 
 void MPM::step() {
@@ -50,7 +52,6 @@ void MPM::draw() const {
     glEnd();
 }
 
-
 // Quadratic B-spline interpolation
 Weights computeWeights(const glm::vec3& pos, float inv_dx) {
     glm::vec3 xp = pos * inv_dx;
@@ -67,15 +68,59 @@ Weights computeWeights(const glm::vec3& pos, float inv_dx) {
         0.5f * glm::pow(1.5f - fx.y, 2.0f),
         0.75f - glm::pow(fx.y - 1.0f, 2.0f),
         0.5f * glm::pow(fx.y - 0.5f, 2.0f)
-    };
-
-    glm::vec3 wz = {
+    }; glm::vec3 wz = {
         0.5f * glm::pow(1.5f - fx.z, 2.0f),
         0.75f - glm::pow(fx.z - 1.0f, 2.0f),
         0.5f * glm::pow(fx.z - 0.5f, 2.0f)
     };
 
     return Weights{ base, wx, wy, wz, fx };
+}
+
+// Minimal 3x3 SVD using Jacobi iteration
+// Computes F = U * S * V^T
+void svd(const glm::mat3& F, glm::mat3& U, glm::mat3& S, glm::mat3& V) {
+    glm::mat3 ATA = glm::transpose(F) * F;
+
+    // V: eigenvectors of ATA
+    V = glm::mat3(1.0f);
+    for (int iter = 0; iter < 10; ++iter) {
+        for (int p = 0; p < 2; ++p) {
+        for (int q = p+1; q < 3; ++q) {
+            float app = ATA[p][p], aqq = ATA[q][q];
+            float apq = ATA[p][q];
+
+            if (fabs(apq) < 1e-5f) continue;
+
+            float phi = 0.5f * atan2(2 * apq, aqq - app);
+            float c = cos(phi), s = sin(phi);
+
+            glm::mat3 J(1.0f);
+            J[p][p] =  c; J[p][q] = s;
+            J[q][p] = -s; J[q][q] = c;
+
+            ATA = glm::transpose(J) * ATA * J;
+            V = V * J;
+        }}
+    }
+
+    // S: singular values from sqrt of eigenvalues of ATA
+    glm::vec3 sigma(
+        sqrtf(ATA[0][0]),
+        sqrtf(ATA[1][1]),
+        sqrtf(ATA[2][2])
+    );
+    S = glm::mat3(0.0f);
+    S[0][0] = sigma[0];
+    S[1][1] = sigma[1];
+    S[2][2] = sigma[2];
+
+    // U = F * V * S⁻¹
+    glm::mat3 Sinv(0.0f);
+    for (int i = 0; i < 3; ++i)
+        if (sigma[i] > 1e-6f)
+            Sinv[i][i] = 1.0f / sigma[i];
+    U = F * V * Sinv;
 }
 
 // 2. particle-to-grid (P2G).
@@ -85,96 +130,65 @@ void MPM::p2g() {
     float dx = 1.0f; // Grid cell size
     float inv_dx = 1.0f / dx;
 
-    // Paralle particles
-    const auto& particleList = particles.getParticles();
-    int numThreads = std::thread::hardware_concurrency();
-    std::vector<std::vector<Cell>> stagingGrids(
-        numThreads, std::vector<Cell>(grid.size * grid.size * grid.size)
-    );
+    for (auto& p : particles.getParticles()) {
+        // 2.1: calculate weights for the 3x3 neighbouring cells surrounding the particle's position
+        // on the grid using an interpolation function
+        Weights w = computeWeights(p.x, inv_dx);
 
-    // Lambda thread function
-    auto worker = [&](int start, int end, int thread_id) {
-        auto& staging = stagingGrids[thread_id];
+        // 2.2: calculate quantities like e.g. stress based on constitutive equation
+        glm::mat3 F = p.F; // deformation gradient
 
-        for (int idx = start; idx < end; ++idx) {
-            const Particle& p = particleList[idx];
-            // 2.1: calculate weights for the 3x3 neighbouring cells surrounding the particle's position
-            // on the grid using an interpolation function
-            Weights w = computeWeights(p.x, inv_dx);
+        // MPM course page 13, "Kinematics Theory"
+        float J = glm::determinant(F);
+        float volume = p.volume_0 * J;
 
-            // 2.2: calculate quantities like e.g. stress based on constitutive equation
-            glm::mat3 F = p.F; // deformation gradient
+        // required terms for Neo-Hookean model (eq. 48, MPM course)
+        glm::mat3 F_T = glm::transpose(F);
+        glm::mat3 F_inv_T = glm::inverse(F_T);
+        glm::mat3 F_minus_F_inv_T = F - F_inv_T;
 
-            // MPM course page 13, "Kinematics Theory"
-            float J = glm::determinant(F);
-            float volume = p.volume_0 * J;
+        // Cauvhy stress = (1 / det(F)) * P *F_T
+        glm::mat3 P = mu * F_minus_F_inv_T + lambda * std::log(J) * F_inv_T;
+        glm::mat3 stress = (1.0f / J) * P * F_T;
 
-            // required terms for Neo-Hookean model (eq. 48, MPM course)
-            glm::mat3 F_T = glm::transpose(F);
-            glm::mat3 F_inv_T = glm::inverse(F_T);
-            glm::mat3 F_minus_F_inv_T = F - F_inv_T;
+        // (M_p)^-1 = 4, see APIC paper and MPM course page 42
+        // this term is used in MLS-MPM paper eq. 16. with quadratic weights, Mp = (1/4) * (delta_x)^2.
+        // in this simulation, delta_x = 1, because i scale the rendering of the domain rather than the domain itself.
+        // we multiply by dt as part of the process of fusing the momentum and force update for MLS-MPM
+        glm::mat3 eq16Term0 = -volume * 4.0f * dt * stress;
 
-            // Tunable parameters // TODO: put in initalizer
+        // 2.3:
+        for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+        for (int k = 0; k < 3; ++k) {
+            glm::ivec3 offset(i, j, k);
+            glm::ivec3 node = w.base + offset;
 
-            // Cauvhy stress = (1 / det(F)) * P *F_T
-            glm::mat3 P = mu * F_minus_F_inv_T + lambda * std::log(J) * F_inv_T;
-            glm::mat3 stress = (1.0f / J) * P * F_T;
+            if (node.x < 0 || node.x >= grid.size ||
+                node.y < 0 || node.y >= grid.size ||
+                node.z < 0 || node.z >= grid.size)
+                continue;
 
-            // (M_p)^-1 = 4, see APIC paper and MPM course page 42
-            // this term is used in MLS-MPM paper eq. 16. with quadratic weights, Mp = (1/4) * (delta_x)^2.
-            // in this simulation, delta_x = 1, because i scale the rendering of the domain rather than the domain itself.
-            // we multiply by dt as part of the process of fusing the momentum and force update for MLS-MPM
-            glm::mat3 eq16Term0 = -volume * 4.0f * dt * stress;
+            float weight = w.wx[i] * w.wy[j] * w.wz[k];
+            glm::vec3 dpos = ((glm::vec3(offset) - w.fx) * dx);
 
-            // 2.3:
-            for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
-            for (int k = 0; k < 3; ++k) {
-                glm::ivec3 offset(i, j, k);
-                glm::ivec3 node = w.base + offset;
+            Cell& cell = grid.at(node.x, node.y, node.z);
 
-                if (node.x < 0 || node.x >= grid.size ||
-                    node.y < 0 || node.y >= grid.size ||
-                    node.z < 0 || node.z >= grid.size)
-                    continue;
+            // APIC: compute Q = C * dpos
+            glm::vec3 Q = p.C * dpos;
 
-                float weight = w.wx[i] * w.wy[j] * w.wz[k];
-                glm::vec3 dpos = ((glm::vec3(offset) - w.fx) * dx);
+            float weightedMass = weight * p.mass;
+            cell.mass += weightedMass;
 
-                Cell& cell = grid.at(node.x, node.y, node.z);
+            // scatter our particle's momentum to the grid, using the cell's interpolation weight calculated in old 2.1
+            // cell.mass += weight * particleMass;
+            // cell.velocity += weight * particleMass * p.v;
 
-                // APIC: compute Q = C * dpos
-                glm::vec3 Q = p.C * dpos;
-
-                float weightedMass = weight * p.mass;
-                cell.mass += weightedMass;
-
-                // scatter our particle's momentum to the grid, using the cell's interpolation weight calculated in old 2.1
-                // cell.mass += weight * particleMass;
-                // cell.velocity += weight * particleMass * p.v;
-
-                // New 2.1: Fused momentum + stress force contribution
-                glm::vec3 momentum = weightedMass * (p.v + Q) + eq16Term0 * dpos * weight;
-                cell.velocity += momentum;
-            }
+            // New 2.1: Fused momentum + stress force contribution
+            glm::vec3 momentum = weightedMass * (p.v + Q) + eq16Term0 * dpos * weight;
+            cell.velocity += momentum;
         }
-    };
-
-    int chunkSize = particleList.size() / numThreads;
-    std::vector<std::thread> threads;
-
-    for (int t = 0; t < numThreads; ++t) {
-        int start = t * chunkSize;
-        int end = (t == numThreads - 1) ? particleList.size() : (t + 1) * chunkSize;
-        threads.emplace_back(worker, start, end, t);
-    }
-    for (auto& th : threads) th.join();
-
-    // Merge thread-local staging into actual grid
-    for (int i = 0; i < grid.size * grid.size * grid.size; ++i) {
-        for (int t = 0; t < numThreads; ++t) {
-            grid.cells[i].mass     += stagingGrids[t][i].mass;
-            grid.cells[i].velocity += stagingGrids[t][i].velocity;
+        }
         }
     }
 }
@@ -195,6 +209,23 @@ void MPM::g2p() {
             // 4.1: update particle's deformation gradient using MLS-MPM's velocity gradient estimate
             // Reference: MLS-MPM paper, Eq. 17
             p.F = (glm::mat3(1.0f) + dt * p.C) * p.F;
+
+            if (enablePlasticity) {
+                // Simple plasticity: limit singular values (stretch) of F
+                float F_max = 1.5f;
+                float F_min = 0.6f;
+
+                // Optional: QR or SVD (or just approximate with polar decomposition)
+                glm::mat3 U, Sigma, V;
+                svd(p.F, U, Sigma, V);
+
+                // Clamp singular values
+                for (int i = 0; i < 3; ++i)
+                    Sigma[i][i] = glm::clamp(Sigma[i][i], F_min, F_max);
+
+                // Recompose clamped F
+                p.F = U * Sigma * glm::transpose(V);
+            }
 
             // 4.2: calculate neighbouring cell weights as in step 2.1.
             // note: our particle's haven't moved on the grid at all by this point, so the weights will be identical

@@ -244,7 +244,7 @@ void OpenGLRenderer::cleanupMesh() {
 // ====================================================================
 
 void OpenGLRenderer::setupMPM() {
-    int gridSize = 128; // FIXME: make parameter (increased from 64)
+    int gridSize = 124; // FIXME: make parameter (increased from 64)
     const auto& objects = GLOBAL_args->mesh->getAllMPMObjects();
 
     // Count total particles
