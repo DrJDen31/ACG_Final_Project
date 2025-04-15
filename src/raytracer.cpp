@@ -253,14 +253,14 @@ Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> light
         RayTree::AddReflectedSegment(to_sparkle, 0, sparkle_hit.getT());
 
         // 
-        if ((blocked_s && sparkle_hit.getMaterial()->getEmittedColor().Length() > 0.5) || (!blocked_s && normal.y() > 0.95) && 0) {
+        if ((blocked_s && sparkle_hit.getMaterial()->getEmittedColor().Length() > 0.5) || (!blocked_s && normal.y() > 0.95)) {
             float check = GLOBAL_args->rand();
             float aa = GLOBAL_args->rand();
-            float aa_thresh = 1 / (GLOBAL_args->mesh_data->num_antialias_samples + 1);
-            if (check > 0.97) {
+            float aa_thresh = 1 / GLOBAL_args->mesh_data->num_antialias_samples;
+            if (check > 0.95) {
                 Vec3f rand_color = Vec3f(GLOBAL_args->rand(), GLOBAL_args->rand(), GLOBAL_args->rand());
                 rand_color.Normalize();
-                //return Vec3f(1.0, 0, 0);
+                return Vec3f(1.0, 0.97, 0.95);
             }
         }
 
@@ -268,7 +268,7 @@ Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> light
         Vec3f hit_pos = point;
         Vec3f part_pos = particle_pos;
         Vec3f new_dir = hit_pos - part_pos;
-        for (int sub = 0; sub < 0; sub++) {
+        for (int sub = 0; sub < 10; sub++) {
             new_dir += (0.5 * sub * Vec3f(GLOBAL_args->rand(), GLOBAL_args->rand(), GLOBAL_args->rand()));
             new_dir.Normalize();
             Ray sub_ray(hit_pos, new_dir);
@@ -487,8 +487,8 @@ Vec3f VisualizeTraceRay(double i, double j) {
       Ray r = GLOBAL_args->mesh->camera->generateRay(x, y);
       Hit hit;
       Vec3f result = GLOBAL_args->raytracer->BiTraceRay(r, hit, light_spots, GLOBAL_args->mesh_data->num_bounces);
-      if ((result == Vec3f(1.0, 0, 0) || color == Vec3f(1.0, 0, 0)) && 0) {
-          color = Vec3f(1.0, 0, 0);
+      if (result == Vec3f(1.0, 0.97, 0.95) || color == Vec3f(1.0, 0.97, 0.95)) {
+          color = Vec3f(1.0, 0.97, 0.95);
       } else {
         color += result * Vec3f(1.0/as, 1.0/as, 1.0/as);
       }
