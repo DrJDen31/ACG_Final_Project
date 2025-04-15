@@ -32,4 +32,5 @@ private:
     // Paramters for simulation
     float mu; // shear modulus
     float lambda; // bulk modulus
+    bool enablePlasticity;
 };

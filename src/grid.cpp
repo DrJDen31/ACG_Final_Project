@@ -1,7 +1,19 @@
 #include "grid.h"
 #include <thread>
 
-Grid::Grid(int s) : size(s), cells(s * s * s) {}
+glm::mat3 computeRotationMatrix(float angle_x_deg, float angle_y_deg,
+                                float angle_z_deg);
+
+Grid::Grid(int s) : size(s), cells(s * s * s) {
+    // Compute once before simulation step
+    glm::mat3 rotation = computeRotationMatrix(0.0f, 0.0f, 0.0f);
+    worldTranslation = glm::vec3(0.0f, 0.0f, 0.0f);
+    worldRotation = glm::inverse(rotation);
+}
+
+bool isInsideBoundary(const glm::vec3& pos_world, int size,
+                      const glm::mat3& inverse_rotation,
+                      const glm::vec3& translation);
 
 // 3. calculate grid velocities
 void Grid::update() {
@@ -22,9 +34,8 @@ const int numThreads = std::thread::hardware_concurrency();
             int y = (i / size) % size;
             int z = i / (size * size);
 
-            if (x < 2 || x > size - 3 ||
-                y < 2 || y > size - 3 ||
-                z < 2 || z > size - 3) {
+            glm::vec3 pos_world(x, y, z);
+            if (!isInsideBoundary(pos_world, size, worldRotation, worldTranslation)) {
                 cell.velocity = glm::vec3(0.0f);
             }
         }
@@ -64,4 +75,40 @@ void Grid::clear() {
 
 Cell& Grid::at(int x, int y, int z) {
     return cells[(z * size * size) + (y * size) + x];
+}
+
+// Check boundary
+bool isInsideBoundary(const glm::vec3& pos_world, int size,
+                      const glm::mat3& inverse_rotation,
+                      const glm::vec3& translation) {
+    glm::vec3 minBound(0.0);
+    glm::vec3 maxBound(size * 3.0f);
+
+    glm::vec3 local_pos = inverse_rotation * (pos_world - translation);
+    return glm::all(glm::greaterThanEqual(local_pos, minBound)) &&
+           glm::all(glm::lessThanEqual(local_pos, maxBound));
+}
+
+glm::mat3 computeRotationMatrix(float angle_x_deg, float angle_y_deg,
+                                float angle_z_deg) {
+    float x = glm::radians(angle_x_deg);
+    float y = glm::radians(angle_y_deg);
+    float z = glm::radians(angle_z_deg);
+
+    glm::mat3 rotX(
+        glm::vec3(1, 0, 0),
+        glm::vec3(0, cos(x), -sin(x)),
+        glm::vec3(0, sin(x), cos(x)));
+
+    glm::mat3 rotY(
+        glm::vec3(cos(y), 0, sin(y)),
+        glm::vec3(0, 1, 0),
+        glm::vec3(-sin(y), 0, cos(y)));
+
+    glm::mat3 rotZ(
+        glm::vec3(cos(z), -sin(z), 0),
+        glm::vec3(sin(z), cos(z), 0),
+        glm::vec3(0, 0, 1));
+
+    return rotZ * rotY * rotX;
 }
