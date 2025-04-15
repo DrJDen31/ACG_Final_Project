@@ -61,6 +61,8 @@ typedef struct MeshData {
   int raytracing_divs_y;
   int raytracing_x;
   int raytracing_y;
+  int num_lights;
+
   
   // PHOTON MAPPING PARAMETERS
   int num_photons_to_shoot;

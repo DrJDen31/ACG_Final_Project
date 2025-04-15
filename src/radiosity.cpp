@@ -134,7 +134,9 @@ void Radiosity::ComputeFormFactors() {
                   other_way.Negate();
                   Ray sample(start, direction);
                   Hit sample_hit = Hit();
-                  bool blocked = this->raytracer->CastRay(sample, sample_hit, false);
+                  bool mpm;
+                  Vec3f particle_pos;
+                  bool blocked = this->raytracer->CastRay(sample, sample_hit, false, particle_pos, mpm);
 
                   // check if nothing blocking the two faces
                   if (blocked) {

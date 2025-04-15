@@ -242,12 +242,12 @@ void MPM::g2p() {
     for (auto& thread : threads) thread.join();
 }
 
-bool MPM::intersect(const Ray& r, Hit& h) const {
+bool MPM::intersect(const Ray& r, Hit& h, Vec3f& particle_pos, double threshold) const {
     // snow material, should move to somewhere global or file configured
-    Vec3f diffuse = Vec3f(0.75f, 0.80f, 0.85f);
+    Vec3f diffuse = Vec3f(0.28f, 0.28f, 0.28f);
     Vec3f reflective = Vec3f(0.0f, 0.0f, 0.0f);
     Vec3f emitted = Vec3f(0.0f, 0.0f, 0.0f);
-    float roughness = 0.3;
+    float roughness = 0.7;
     Material* material = new Material("", diffuse, reflective, emitted, roughness);
 
     // normal of the hit (will come from the particle)
@@ -258,11 +258,19 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
 
     // trackers for nearest valid collision
     double t = -1;
+    double t_2 = -1;
+    int index = -1;
+    int index_2 = -1;
+    Vec3f distance_1;
+    Vec3f distance_2;
     bool collision = false;
+    bool found_1 = false;
+    bool found_2 = false;
 
     // find center of mass
     bool found_center = false;
     Vec3f center_of_mass = Vec3f(0, 0, 0);
+
 
     // for each particle, check if we intersect it
     for (int i = 0; i < particleList.size(); i++) {
@@ -275,6 +283,14 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
             std::cout << "ray origin: " << r.getOrigin() << std::endl;
             std::cout << "ray dir: " << r.getDirection() << std::endl;
         }
+
+        Vec3f to_point = pos - r.getOrigin();
+        double to_p = to_point.Length();
+
+        Vec3f projected = r.pointAtParameter(to_p);
+        Vec3f distance = projected - pos;
+
+        /*
 
         // X
         // determine where the point would be along the ray given it's x value
@@ -321,42 +337,54 @@ bool MPM::intersect(const Ray& r, Hit& h) const {
             projected = z_projected;
             ts = z_ts;
         }
-
+        
         if (i < print_num) {
             Ray checker(r.getOrigin(), cast);
             RayTree::AddReflectedSegment(checker, 0, 5);
             std::cout << "particle would be at " << projected << std::endl;
             std::cout << "particle " << distance.Length() << " away" << std::endl;
         }
+        */
 
-        double threshold = 0.15;
-        if (distance.Length() < threshold) {
-            // find center of mass if not found yet
-            if (!found_center) {
-                for (int j = 0; j < particleList.size(); j++) {
-                    // get the particle's position
-                    Particle p_c = particleList[j];
-                    center_of_mass += Vec3f(p_c.x.x / 64.0f * 2.0f - 1.0f, p_c.x.y / 64.0f * 2.0f - 1.0f, p_c.x.z / 64.0f * 2.0f - 1.0f);
-                }
-                center_of_mass *= 1 / (particleList.size());
+        // update bests if best yet
+        if (!found_1 || (distance.Length() < threshold && to_p < t)) {
+            if (found_1) {
+                distance_2 = distance_1;
+                index_2 = index;
+                t_2 = t;
+                found_2 = true;
             }
-
-            // check if new closest hit
-            ts -= (threshold - distance.Length());
-            if ((t == -1 || ts < t) && ts > 0) {
-                t = ts;
-                collision = true;
-                Vec3f dir_from_center = Vec3f(p.x.x, p.x.y, p.x.z) - r.pointAtParameter(ts); //center_of_mass;
-                normal = dir_from_center;
-                normal.Normalize();
-                //normal = Vec3f(p.normal.x, p.normal.y, p.normal.z);
-                /* CONSIDER: checks on normals
-                if (normal.Dot3(r.getDirection()) > 0) {
-                    normal.Negate();
-                }
-                */
-            }
+            distance_1 = distance;
+            index = i;
+            t = to_p;
+            found_1 = true;
         }
+    }
+
+
+    if (found_1 && distance_1.Length() < threshold && t > 0) {
+        //std::cout << "t before: " << t << std::endl;
+        // find center of mass if not found yet
+        /*
+        if (!found_center) {
+            for (int j = 0; j < particleList.size(); j++) {
+                // get the particle's position
+                Particle p_c = particleList[j];
+                center_of_mass += Vec3f(p_c.x.x / 64.0f * 2.0f - 1.0f, p_c.x.y / 64.0f * 2.0f - 1.0f, p_c.x.z / 64.0f * 2.0f - 1.0f);
+            }
+            center_of_mass *= 1 / (particleList.size());
+        }
+        */
+        
+        t = max(t - (threshold - distance_1.Length()), 0);
+
+        //std::cout << "t after: " << t << std::endl;
+
+        collision = true;
+        Particle p = particleList[index];
+        Vec3f dir_from_center = r.pointAtParameter(t) - Vec3f(p.x.x / 64.0f * 2.0f - 1.0f, p.x.y / 64.0f * 2.0f - 1.0f, p.x.z / 64.0f * 2.0f - 1.0f);
+        normal = dir_from_center + (0.1 * Vec3f(GLOBAL_args->rand(), GLOBAL_args->rand(), GLOBAL_args->rand()));
+        normal.Normalize();
     }
 
     // update hit if collision found

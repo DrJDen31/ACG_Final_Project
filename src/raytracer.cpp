@@ -16,7 +16,7 @@
 
 // ===========================================================================
 // casts a single ray through the scene geometry and finds the closest hit
-bool RayTracer::CastRay(const Ray &ray, Hit &h, bool use_rasterized_patches) const {
+bool RayTracer::CastRay(const Ray &ray, Hit &h, bool use_rasterized_patches, Vec3f& particle_pos, bool &mpm, double threshold) const {
   bool answer = false;
 
   // intersect each of the quads
@@ -38,7 +38,12 @@ bool RayTracer::CastRay(const Ray &ray, Hit &h, bool use_rasterized_patches) con
     }
   }
 
-  if (GLOBAL_args->mpm->intersect(ray, h)) answer = true;
+  if (GLOBAL_args->mpm->intersect(ray, h, particle_pos, threshold)) {
+      answer = true;
+      mpm = true;
+  } else {
+      mpm = false;
+  }
 
   return answer;
 }
@@ -49,7 +54,9 @@ Vec3f RayTracer::TraceRay(Ray &ray, Hit &hit, int bounce_count) const {
 
   // First cast a ray and see if we hit anything.
   hit = Hit();
-  bool intersect = CastRay(ray,hit,false);
+  bool mpm;
+  Vec3f particle_pos;
+  bool intersect = CastRay(ray,hit,false, particle_pos, mpm);
   if (bounce_count < args->mesh_data->num_bounces) {
       RayTree::AddReflectedSegment(ray, 0, hit.getT());
   }
@@ -143,7 +150,9 @@ Vec3f RayTracer::TraceRay(Ray &ray, Hit &hit, int bounce_count) const {
         // cast ray from point to light
         Ray to_source(point, dirToLightCentroid);
         Hit source_hit = Hit();
-        bool blocked = CastRay(to_source, source_hit, false);
+        bool mpm;
+        Vec3f particle_pos;
+        bool blocked = CastRay(to_source, source_hit, false, particle_pos, mpm);
         RayTree::AddShadowSegment(to_source, 0, source_hit.getT());
 
         // if nothing blocking light, add contribution from it
@@ -199,7 +208,9 @@ Vec3f RayTracer::TraceRay(Ray &ray, Hit &hit, int bounce_count) const {
 Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> lights, int bounce_count) const {
     // First cast a ray and see if we hit anything.
     hit = Hit();
-    bool intersect = CastRay(ray, hit, false);
+    bool mpm;
+    Vec3f particle_pos;
+    bool intersect = CastRay(ray, hit, false, particle_pos, mpm);
     if (bounce_count < args->mesh_data->num_bounces) {
         RayTree::AddReflectedSegment(ray, 0, hit.getT());
     }
@@ -211,15 +222,66 @@ Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> light
             srgb_to_linear(mesh->background_color.b()));
     }
 
-    // If we hit MPM, march towards it
-    /*
-    if () {
-        bool found = false;
-        while (!found) {
 
+    Vec3f normal = hit.getNormal();
+    Vec3f point = ray.pointAtParameter(hit.getT());
+    Vec3f answer;
+    Vec3f sub_s = Vec3f(0.0, 0.0, 0.0);
+
+
+    if (mpm) {
+        Vec3f lightCentroid = lights.begin()->position;
+        Vec3f dirToLightCentroid = lightCentroid - point;
+        
+
+        /*
+        if (dirToLightCentroid.Dot3(normal) > 0.9) {
+            float check = GLOBAL_args->rand();
+            if (check > 0.99) {
+                return Vec3f(1, 0, 0);
+            }
+        }
+        */
+
+        
+        // cast ray from point to light
+        Ray to_sparkle(point, normal);
+        Hit sparkle_hit = Hit();
+        bool mpm_s;
+        Vec3f particle_pos_2;
+        bool blocked_s = CastRay(to_sparkle, sparkle_hit, false, particle_pos_2, mpm_s, 0.001);
+        RayTree::AddReflectedSegment(to_sparkle, 0, sparkle_hit.getT());
+
+        // 
+        if ((blocked_s && sparkle_hit.getMaterial()->getEmittedColor().Length() > 0.5) || (!blocked_s && normal.y() > 0.95) && 0) {
+            float check = GLOBAL_args->rand();
+            float aa = GLOBAL_args->rand();
+            float aa_thresh = 1 / (GLOBAL_args->mesh_data->num_antialias_samples + 1);
+            if (check > 0.97) {
+                Vec3f rand_color = Vec3f(GLOBAL_args->rand(), GLOBAL_args->rand(), GLOBAL_args->rand());
+                rand_color.Normalize();
+                //return Vec3f(1.0, 0, 0);
+            }
+        }
+
+        // check for subsurface scattering
+        Vec3f hit_pos = point;
+        Vec3f part_pos = particle_pos;
+        Vec3f new_dir = hit_pos - part_pos;
+        for (int sub = 0; sub < 0; sub++) {
+            new_dir += (0.5 * sub * Vec3f(GLOBAL_args->rand(), GLOBAL_args->rand(), GLOBAL_args->rand()));
+            new_dir.Normalize();
+            Ray sub_ray(hit_pos, new_dir);
+            Hit sub_hit = Hit();
+            bool sub_mpm;
+            bool intersect = CastRay(sub_ray, sub_hit, false, part_pos, sub_mpm, 0.01);
+            if (!sub_mpm) {
+                sub_s = Vec3f(0.1, 0.15, 0.3);
+                break;
+            }
+            hit_pos = sub_ray.pointAtParameter(sub_hit.getT());
         }
     }
-    */
 
     // otherwise decide what to do based on the material
     Material* m = hit.getMaterial();
@@ -229,11 +291,6 @@ Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> light
     if (m->getEmittedColor().Length() > 0.001) {
         return Vec3f(1, 1, 1);
     }
-
-
-    Vec3f normal = hit.getNormal();
-    Vec3f point = ray.pointAtParameter(hit.getT());
-    Vec3f answer;
 
     Vec3f ambient_light = Vec3f(args->mesh_data->ambient_light.data[0],
         args->mesh_data->ambient_light.data[1],
@@ -273,6 +330,7 @@ Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> light
 
         float distToLightCentroid = (lightCentroid - point).Length();
         myLightColor = 1 / float(M_PI * distToLightCentroid * distToLightCentroid) * lightColor;
+        //myLightColor += sub_s;
 
         //std::cout << "color: " << myLightColor << std::endl;
 
@@ -281,18 +339,20 @@ Vec3f RayTracer::BiTraceRay(Ray& ray, Hit& hit, std::vector<LightEndpoint> light
         // cast ray from point to light
         Ray to_source(point, dirToLightCentroid);
         Hit source_hit = Hit();
-        bool blocked = CastRay(to_source, source_hit, false);
+        bool mpm_2;
+        Vec3f particle_pos;
+        bool blocked = CastRay(to_source, source_hit, false, particle_pos, mpm_2, mpm ? 0.01 : 0.15);
         RayTree::AddShadowSegment(to_source, 0, source_hit.getT());
 
         // if nothing blocking light, add contribution from it
         if (blocked) {
             Vec3f blocking_point = to_source.pointAtParameter(source_hit.getT());
             if ((blocking_point - lightCentroid).Length() < 0.001) {
-                answer += m->Shade(ray, hit, dirToLightCentroid, myLightColor);
+                answer += m->Shade(ray, hit, dirToLightCentroid, myLightColor) + sub_s;
             }
         }
         else {
-            answer += m->Shade(ray, hit, dirToLightCentroid, myLightColor);
+            answer += m->Shade(ray, hit, dirToLightCentroid, myLightColor) + sub_s;
         }
 
     }
@@ -367,12 +427,14 @@ Vec3f VisualizeTraceRay(double i, double j) {
 
 
           int count = 0;
-          while (count < 10) {  //GLOBAL_args->mesh_data->num_bounces
+          while (count < GLOBAL_args->mesh_data->num_lights) {
 
               // Cast next light spot
               Hit hit = Hit();
               Ray ray = Ray(cur_position, cur_dir);
-              bool intersect = GLOBAL_args->raytracer->CastRay(ray, hit, false);
+              bool mpm;
+              Vec3f particle_pos;
+              bool intersect = GLOBAL_args->raytracer->CastRay(ray, hit, false, particle_pos, mpm);
               RayTree::AddReflectedSegment(ray, 0, hit.getT());
 
               // if there is no intersection, break
@@ -424,7 +486,12 @@ Vec3f VisualizeTraceRay(double i, double j) {
       double y = (j - GLOBAL_args->mesh_data->height / 2.0) / double(max_d) + y_offset;
       Ray r = GLOBAL_args->mesh->camera->generateRay(x, y);
       Hit hit;
-      color += GLOBAL_args->raytracer->BiTraceRay(r, hit, light_spots, GLOBAL_args->mesh_data->num_bounces) * Vec3f(1.0/as, 1.0/as, 1.0/as);
+      Vec3f result = GLOBAL_args->raytracer->BiTraceRay(r, hit, light_spots, GLOBAL_args->mesh_data->num_bounces);
+      if ((result == Vec3f(1.0, 0, 0) || color == Vec3f(1.0, 0, 0)) && 0) {
+          color = Vec3f(1.0, 0, 0);
+      } else {
+        color += result * Vec3f(1.0/as, 1.0/as, 1.0/as);
+      }
       //color += GLOBAL_args->raytracer->TraceRay(r, hit, GLOBAL_args->mesh_data->num_bounces) * Vec3f(1.0/as, 1.0/as, 1.0/as);
       // add that ray for visualization
       RayTree::AddMainSegment(r, 0, hit.getT());

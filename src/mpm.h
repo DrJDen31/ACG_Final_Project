@@ -20,7 +20,7 @@ public:
     void draw() const;
 
     // for raytracing
-    bool intersect(const Ray& r, Hit& h) const;
+    bool intersect(const Ray& r, Hit& h, Vec3f& particle_pos, double threshold = 0.15) const;
 
 private:
     void p2g(); // Particle-to-grid

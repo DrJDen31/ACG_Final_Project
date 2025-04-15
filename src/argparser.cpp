@@ -55,6 +55,7 @@ void ArgParser::DefaultValues() {
   mesh_data->num_glossy_samples = 1;
   mesh_data->ambient_light = {0.1f,0.1f,0.1f};
   mesh_data->intersect_backfacing = false;
+  mesh_data->num_lights = 0;
   
   // PHOTON MAPPING PARAMETERS
   mesh_data->render_photons = true;
@@ -121,6 +122,9 @@ ArgParser::ArgParser(int argc, const char *argv[], MeshData *_mesh_data) {
       i++; assert (i < argc); 
       mesh_data->num_antialias_samples = atoi(argv[i]);
       assert (mesh_data->num_antialias_samples > 0);
+    } else if (std::string(argv[i]) == std::string("--num_lights")) {
+        i++; assert(i < argc);
+        mesh_data->num_lights = atoi(argv[i]);
     } else if (std::string(argv[i]) == std::string("--num_glossy_samples")) {
       i++; assert (i < argc); 
       mesh_data->num_glossy_samples = atoi(argv[i]);

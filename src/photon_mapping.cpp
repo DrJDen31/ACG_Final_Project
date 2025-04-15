@@ -43,7 +43,9 @@ void PhotonMapping::TracePhoton(const Vec3f &position, const Vec3f &direction,
     Ray trace(position, direction);
     Hit trace_hit = Hit();
 
-    bool hit = raytracer->CastRay(trace, trace_hit, false);
+    bool mpm;
+    Vec3f particle_pos;
+    bool hit = raytracer->CastRay(trace, trace_hit, false, particle_pos, mpm);
 
     if (!hit) { return; }
 
